@@ -179,7 +179,7 @@ class Trajectory:
 
 
 class Orbit:
-    def __init__(self, a, b, n=2, mode="classic", *args, **kargs):
+    def __init__(self, a, b, n=2, mode="classic", init="random", *args, **kargs):
         self.mode = mode
         self.table = Table(a=a, b=b)
 
@@ -187,11 +187,18 @@ class Orbit:
         self.phi = []
         self.u = []
 
-        self.phi = torch.tensor(np.random.uniform(
-            low=1e-7, high=2*np.pi-1e-7, size=n).astype("float32"), requires_grad=True)
 
-        # self.s = torch.tensor([self.table.get_arclength(phi)
-        #                      for phi in self.phi])
+        if init == "random":
+            offset = 1e-7
+            self.phi = torch.tensor(np.random.uniform(
+                low=offset, high=2*np.pi-offset, size=n).astype("float32"), requires_grad=True)
+        elif init == "uniform":
+            self.phi = torch.arange(n)/n*2*torch.pi
+            self.phi.requires_grad_()
+        else:
+            return
+
+        self.phi0 = self.phi.clone()
 
     def set_u(self, u):
         self.u = u
@@ -204,6 +211,12 @@ class Orbit:
 
     def get_phi(self):
         return self.phi
+    
+    def points(self, x=None, dtype="NumPy"):
+        if x is None:
+            return self.table.boundary(self.phi, dtype=dtype)
+        else:
+            return self.table.boundary(x, dtype=dtype)
 
     def pairs(self, x, periodic=True):
         pairs = torch.cat((torch.unsqueeze(x, dim=1),
@@ -227,8 +240,16 @@ class Orbit:
         ax.set_xlim([-3, 3])
         ax.set_ylim([-3, 3])
 
+        points0 = self.table.boundary(self.phi0.detach().numpy()).T
         points = self.table.boundary(self.phi.detach().numpy()).T
         ax.scatter(points[:, 0], points[:, 1])
+        ax.scatter(points0[:, 0], points0[:, 1])
+
+        # plot the chords
+        xx = np.hstack([points[0::2][:, 0], points[1::2][:, 0], points[0][0]])
+        yy = np.hstack([points[0::2][:, 1], points[1::2][:, 1], points[0][1]])
+
+        ax.plot(xx, yy, c="black")
 
         plt.show()
 

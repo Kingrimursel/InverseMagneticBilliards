@@ -20,7 +20,7 @@ def generate_dataset(a, b, mu, n_samples, filename, cs="Birkhoff", type="ReturnM
                             "raw", type, cs, filename)
 
     if type == "ReturnMap":
-        offset = 1e-7
+        offset = 1e-10
         phis = np.random.uniform(low=0, high=2*np.pi, size=n_samples)
         thetas = np.random.uniform(
             low=offset, high=np.pi-offset, size=n_samples)
@@ -54,4 +54,5 @@ def generate_dataset(a, b, mu, n_samples, filename, cs="Birkhoff", type="ReturnM
 
         print(f"SAVING DATASET TO {filename}...")
         dataset = np.vstack((phi0s, phi1s, Gs)).T
+
         np.save(filename, dataset)

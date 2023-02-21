@@ -1,4 +1,5 @@
 import numpy as np
+from functorch import jacfwd, jacrev, vmap
 from scipy.optimize import root_scalar
 from matplotlib.widgets import Slider
 
@@ -79,3 +80,28 @@ def angle_between(v1, v2):
     v1_u = unit_vector(v1)
     v2_u = unit_vector(v2)
     return np.arccos(np.clip(np.dot(v1_u, v2_u), -1.0, 1.0))
+
+
+def batch_jacobian(f, input):
+    """
+    Compute the diagonal entries of the jacobian of f with respect to x
+    :param f: the function
+    :param x: where it is to be evaluated
+    :return: diagonal of df/dx. First dimension is the derivative
+    """
+
+    # compute vectorized jacobian. For curvature because of nested derivatives, for some of the backward functions
+    # the forward mode AD is not implemented
+    if input.ndim == 1:
+        try:
+            jac = jacfwd(f)(input)
+        except NotImplementedError:
+            jac = jacrev(f)(input)
+
+    else:
+        try:
+            jac = vmap(jacfwd(f), in_dims=(0,))(input)
+        except NotImplementedError:
+            jac = vmap(jacrev(f), in_dims=(0,))(input)
+
+    return jac

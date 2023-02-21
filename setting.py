@@ -1,3 +1,4 @@
+import torch
 import numpy as np
 import matplotlib as mpl
 from scipy.special import ellipeinc
@@ -23,8 +24,13 @@ class Table:
 
         return t
 
-    def boundary(self, phi):
-        return np.array([self.a*np.cos(phi), self.b*np.sin(phi)])
+    def boundary(self, phi, dtype="NumPy"):
+        if dtype == "NumPy":
+            return np.array([self.a*np.cos(phi), self.b*np.sin(phi)])
+        elif dtype == "PyTorch":
+            return torch.stack([self.a*torch.cos(phi), self.b*torch.sin(phi)]).T
+        else:
+            return
 
     def tangent(self, phi):
         return np.array([-self.a*np.sin(phi), self.b*np.cos(phi)])
