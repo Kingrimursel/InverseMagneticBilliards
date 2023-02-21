@@ -6,7 +6,7 @@ from matplotlib.offsetbox import AnchoredText
 from matplotlib.widgets import Slider
 
 from setting import Table
-from util import get_initial_theta, get_legend, update_slider_range, get_chi, rotate_vector, angle_between
+from util import get_initial_theta, get_legend, update_slider_range, get_chi, rotate_vector, angle_between, pair
 
 
 class Trajectory:
@@ -178,6 +178,8 @@ class Trajectory:
             ax.add_artist(text_box)
 
 
+
+
 class Orbit:
     def __init__(self, a, b, n=2, mode="classic", init="random", *args, **kargs):
         self.mode = mode
@@ -186,7 +188,6 @@ class Orbit:
         self.s = []
         self.phi = []
         self.u = []
-
 
         if init == "random":
             offset = 1e-7
@@ -204,6 +205,9 @@ class Orbit:
         self.u = u
 
     def get_u(self):
+        phi = self.get_phi()
+        self.u = self.points(x=phi) - self.points(x=torch.roll(phi, -1))
+
         return self.u
 
     def get_s(self):
@@ -211,19 +215,15 @@ class Orbit:
 
     def get_phi(self):
         return self.phi
-    
-    def points(self, x=None, dtype="NumPy"):
+
+    def points(self, x=None):
         if x is None:
-            return self.table.boundary(self.phi, dtype=dtype)
+            return self.table.boundary(self.phi)
         else:
-            return self.table.boundary(x, dtype=dtype)
+            return self.table.boundary(x)
 
     def pairs(self, x, periodic=True):
-        pairs = torch.cat((torch.unsqueeze(x, dim=1),
-                           torch.unsqueeze(torch.roll(x, -1), dim=1)), 1)
-
-        if not periodic:
-            pairs = pairs[:-1]
+        pairs = pair(x, periodic=True)
 
         return pairs
 

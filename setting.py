@@ -24,16 +24,18 @@ class Table:
 
         return t
 
-    def boundary(self, phi, dtype="NumPy"):
-        if dtype == "NumPy":
-            return np.array([self.a*np.cos(phi), self.b*np.sin(phi)])
-        elif dtype == "PyTorch":
+    def boundary(self, phi):
+        if torch.is_tensor(phi):
             return torch.stack([self.a*torch.cos(phi), self.b*torch.sin(phi)]).T
         else:
-            return
+            return np.array([self.a*np.cos(phi), self.b*np.sin(phi)])
+
 
     def tangent(self, phi):
-        return np.array([-self.a*np.sin(phi), self.b*np.cos(phi)])
+        if torch.is_tensor(phi):
+            return torch.stack([-self.a*torch.sin(phi), self.b*torch.cos(phi)])
+        else:
+            return np.array([-self.a*np.sin(phi), self.b*np.cos(phi)])
 
     def get_patch(self, fill=None):
         return mpl.patches.Ellipse((0, 0), 2*self.a, 2*self.b, fill=fill, alpha=1, facecolor="white", edgecolor="black")

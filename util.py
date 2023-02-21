@@ -1,3 +1,4 @@
+import torch
 import numpy as np
 from functorch import jacfwd, jacrev, vmap
 from scipy.optimize import root_scalar
@@ -63,23 +64,29 @@ def implicit_theta(theta0, m, n, mu):
 
 
 def unit_vector(vector):
-    """ Returns the unit vector of the vector.  """
-    return vector / np.linalg.norm(vector)
+    if torch.is_tensor(vector):
+        return vector / torch.linalg.norm(vector, dim=0)
+    else:
+        return vector / np.linalg.norm(vector)
 
 
 def angle_between(v1, v2):
-    """ Returns the angle in radians between vectors 'v1' and 'v2'::
-
-            >>> angle_between((1, 0, 0), (0, 1, 0))
-            1.5707963267948966
-            >>> angle_between((1, 0, 0), (1, 0, 0))
-            0.0
-            >>> angle_between((1, 0, 0), (-1, 0, 0))
-            3.141592653589793
-    """
     v1_u = unit_vector(v1)
     v2_u = unit_vector(v2)
-    return np.arccos(np.clip(np.dot(v1_u, v2_u), -1.0, 1.0))
+    if torch.is_tensor(v1):
+        sp = torch.clip((v1_u*v2_u).sum(axis=1), -1.0, 1.0)
+        return torch.arccos(sp)
+    else:
+        return np.arccos(np.clip(np.dot(v1_u, v2_u), -1.0, 1.0))
+    
+def pair(x, periodic=True):
+    pairs = torch.cat((torch.unsqueeze(x, dim=1),
+                        torch.unsqueeze(torch.roll(x, -1), dim=1)), 1)
+
+    if not periodic:
+        pairs = pairs[:-1]
+
+    return pairs
 
 
 def batch_jacobian(f, input):
