@@ -30,7 +30,6 @@ class Table:
         else:
             return np.array([self.a*np.cos(phi), self.b*np.sin(phi)])
 
-
     def tangent(self, phi):
         if torch.is_tensor(phi):
             return torch.stack([-self.a*torch.sin(phi), self.b*torch.cos(phi)])
@@ -42,6 +41,6 @@ class Table:
 
     def get_arclength(self, phi):
         return ellipeinc(phi, 1-(self.a/self.b)**2)
-    
+
     def get_circumference(self):
         return self.get_arclength(2*np.pi)

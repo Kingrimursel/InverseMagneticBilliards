@@ -24,16 +24,16 @@ def minimization_procedure(a, b, dir=None):
         torch.load(filename)["model_state_dict"])
 
     # number of applications of return map
-    n_return = 5
+    n_return = 6
 
     # number of epochs for minimization
-    n_epochs = 200
+    n_epochs = 500
 
     # initialize an orbit
-    orbit = Orbit(a=a, b=b, n=n_return, init="random")
+    orbit = Orbit(a=a, b=b, n=n_return, init="uniform")
 
     # initialize and execute minimizer
-    minimizer = Minimizer(orbit, generating_function.model, n_epochs=n_epochs)
+    minimizer = Minimizer(orbit, generating_function.model, n_epochs=n_epochs, exact=False)
 
     # minimize action
     minimizer.minimize()

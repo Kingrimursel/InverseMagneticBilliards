@@ -178,8 +178,6 @@ class Trajectory:
             ax.add_artist(text_box)
 
 
-
-
 class Orbit:
     def __init__(self, a, b, n=2, mode="classic", init="random", *args, **kargs):
         self.mode = mode
@@ -240,14 +238,14 @@ class Orbit:
         ax.set_xlim([-3, 3])
         ax.set_ylim([-3, 3])
 
-        points0 = self.table.boundary(self.phi0.detach().numpy()).T
-        points = self.table.boundary(self.phi.detach().numpy()).T
+        points0 = self.table.boundary(self.phi0.detach())
+        points = self.table.boundary(self.phi.detach())
         ax.scatter(points[:, 0], points[:, 1])
         ax.scatter(points0[:, 0], points0[:, 1])
 
         # plot the chords
-        xx = np.hstack([points[0::2][:, 0], points[1::2][:, 0], points[0][0]])
-        yy = np.hstack([points[0::2][:, 1], points[1::2][:, 1], points[0][1]])
+        xx = np.hstack([points[:, 0], points[0, 0]])
+        yy = np.hstack([points[:, 1], points[0, 1]])
 
         ax.plot(xx, yy, c="black")
 

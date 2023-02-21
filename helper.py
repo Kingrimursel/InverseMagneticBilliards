@@ -90,7 +90,7 @@ class Minimizer:
         self.optimizer = torch.optim.Adam([orbit.phi], lr=1e-2)
         self.action_fn = action_fn
 
-        self.discrete_action = DiscreteAction(action_fn)
+        self.discrete_action = DiscreteAction(action_fn, orbit=orbit, **kwargs)
 
         self.grad_loss = []
 

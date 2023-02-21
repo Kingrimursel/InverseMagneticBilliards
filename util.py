@@ -75,6 +75,9 @@ def angle_between(v1, v2):
     v2_u = unit_vector(v2)
     if torch.is_tensor(v1):
         sp = torch.clip((v1_u*v2_u).sum(axis=1), -1.0, 1.0)
+
+        test = torch.arccos(sp)
+
         return torch.arccos(sp)
     else:
         return np.arccos(np.clip(np.dot(v1_u, v2_u), -1.0, 1.0))
