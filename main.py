@@ -1,10 +1,4 @@
-import os
-import torch
-
-from data.generate import generate_dataset
-from data.datasets import load_dataset
-from ml.models import ReLuModel
-from ml.training import train_model
+from procedures import training_procedure, minimization_procedure
 
 
 if __name__ == "__main__":
@@ -15,9 +9,7 @@ if __name__ == "__main__":
     # magnetic properties
     mu = 1/5
 
-    dataset = load_dataset(os.path.join(os.path.dirname(
-        __file__), "data/raw/train50k.npy"))
+    # training_procedure()
+    minimization_procedure("C:/Users/philipp/Documents/documents/uni/bachelor/8/bachelorarbeit/InverseMagneticBilliards/output/checkpoints/model/2023-02-16/model.pth")
 
-    model = ReLuModel()
-
-    train_model(model, dataset, torch.nn.MSELoss(), 100)
+    # generate_dataset(a, b, mu, 50000, "train50k.npy")

@@ -6,7 +6,7 @@ from dynamics import Trajectory
 from setting import Table
 
 
-def generate_dataset(a, b, mu):
+def generate_dataset(a, b, mu, n_samples, filename):
     """Automatically generate a return map dataset
 
     Args:
@@ -15,7 +15,6 @@ def generate_dataset(a, b, mu):
         mu (float): larmor radius
     """
 
-    n_samples = int(50e3)
     offset = 1e-7
 
     phis = np.random.uniform(low=0, high=2*np.pi, size=n_samples)
@@ -34,7 +33,7 @@ def generate_dataset(a, b, mu):
 
     coordinates = np.stack(coordinates)
 
-    filename = os.path.join(os.path.dirname(__file__), "raw", "train50k.npy")
+    filename = os.path.join(os.path.dirname(__file__), "raw", filename)
 
     print(f"SAVING DATASET TO {filename}...")
     np.save(filename, coordinates)
