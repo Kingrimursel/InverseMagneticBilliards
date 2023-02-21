@@ -6,10 +6,10 @@ from datetime import datetime
 from matplotlib import pyplot as plt
 
 from data.datasets import ReturnMapDataset, ImplicitUDataset, GeneratingFunctionDataset
-from util import batch_jacobian, angle_between
 from physics import DiscreteAction
 from ml.training import train_model
 from ml.models import ReLuModel
+from util import batch_jacobian, angle_between, sigmoid_scaled
 
 
 class Training:
@@ -84,18 +84,22 @@ class Training:
 
 
 class Minimizer:
-    def __init__(self, orbit, action_fn, n_epochs=50, *args, **kwargs):
+    def __init__(self, orbit, action_fn, n_epochs=50, frequency=(), *args, **kwargs):
         self.orbit = orbit
         self.n_epochs = n_epochs
         self.optimizer = torch.optim.Adam([orbit.phi], lr=1e-2)
         self.action_fn = action_fn
+        self.frequency = frequency
+        self.m, self.n = frequency
 
         self.discrete_action = DiscreteAction(action_fn, orbit=orbit, **kwargs)
 
-        self.grad_loss = []
+        self.grad_losses = []
+        self.m_losses = []
 
     def minimize(self):
         grad_losses = []
+        m_losses = []
         for epoch in range(self.n_epochs):
             self.optimizer.zero_grad()
 
@@ -103,7 +107,16 @@ class Minimizer:
             grad_loss = torch.linalg.norm(
                 batch_jacobian(self.discrete_action, self.orbit.phi))
 
-            total_loss = grad_loss
+            if len(self.frequency) != 0:
+                phi_centered = self.orbit.phi - self.orbit.phi[0]
+                diff = phi_centered - torch.roll(phi_centered, -1)
+                m_approx = torch.sum(sigmoid_scaled(diff, alpha=10))
+                m_loss = (m_approx - self.m)**2
+
+            else:
+                m_loss = torch.tensor([0], requires_grad=True)
+
+            total_loss = grad_loss + m_loss
 
             # do a gradient descent step
             total_loss.backward()
@@ -115,18 +128,22 @@ class Minimizer:
 
             # save losses
             grad_losses.append(grad_loss.item())
+            m_losses.append(m_loss)
 
             # log the result
             print('Epoch: {}, Loss: {:.4f}'.format(epoch+1, grad_loss))
 
         self.grad_losses = torch.tensor(grad_losses)
+        self.m_losses = torch.tensor(m_losses)
 
     def plot(self):
         fig = plt.figure()
         fig.suptitle("Minimization Loss")
-        plt.plot(self.grad_losses)
         plt.xlabel("epoch")
         plt.ylabel("loss")
+        plt.plot(self.grad_losses)
+        if len(self.m_losses) > 0:
+            plt.plot(self.m_losses)
 
         plt.show()
 
@@ -159,8 +176,9 @@ class Diagnostics:
 
         diff = phi_centered - torch.roll(phi_centered, -1)
         m = torch.sum(diff > 0).item()
-
         n = len(self.orbit)
+
+        # m_approx = torch.sum(torch.nn.Sigmoid()(360*diff)).item()
 
         return (m, n)
 

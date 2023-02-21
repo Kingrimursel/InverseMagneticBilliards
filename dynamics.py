@@ -181,7 +181,7 @@ class Trajectory:
 class Orbit:
     def __init__(self, a, b, frequency=(), mode="classic", init="random", *args, **kargs):
         self.mode = mode
-        self.n, self.m = frequency
+        self.m, self.n = frequency
         self.table = Table(a=a, b=b)
 
         self.s = []
@@ -195,7 +195,7 @@ class Orbit:
         elif init == "uniform":
             indices = 1 + \
                 torch.remainder(((self.m)*torch.arange(self.n)), self.n)
-            print(indices)
+
             # indices = torch.arange(n)
             indices[indices == 0] = self.n
 
