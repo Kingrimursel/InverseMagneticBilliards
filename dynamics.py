@@ -1,3 +1,4 @@
+import torch
 import numpy as np
 from matplotlib import pyplot as plt
 from matplotlib.collections import PatchCollection
@@ -9,7 +10,7 @@ from util import get_initial_theta, get_legend, update_slider_range, get_chi, ro
 
 
 class Trajectory:
-    def __init__(self, phi0, theta0, mu, a, b, mode="classic"):
+    def __init__(self, phi0, theta0, mu, a, b, mode="classic", cs="Birkhoff"):
         """Trajectory of a charged particle
 
         Args:
@@ -26,6 +27,7 @@ class Trajectory:
         self.b = b
 
         self.mode = mode
+        self.cs = cs
 
         if self.mode != "classic":
             chi = get_chi(theta0, mu)
@@ -99,7 +101,12 @@ class Trajectory:
                 self.u = u1
                 self.phi = phi1
 
-                coordinates.append([s1, u1])
+                if self.cs == "Birkhoff":
+                    coordinates.append([s1, u1])
+                elif self.cs == "Custom":
+                    coordinates.append([phi1, theta1])
+                else:
+                    return
             else:
                 # corresponds to a chord
                 if self.n_step % 2 == 0:
@@ -169,6 +176,62 @@ class Trajectory:
             text_box = AnchoredText(legend, frameon=True, loc=4, pad=0.5)
             plt.setp(text_box.patch, facecolor='white', alpha=0.5)
             ax.add_artist(text_box)
+
+
+class Orbit:
+    def __init__(self, a, b, mode="classic", *args, **kargs):
+        self.mode = mode
+        self.table = Table(a=a, b=b)
+
+        self.s = []
+        self.phi = []
+        self.u = []
+
+    def init_s(self, n):
+        L = self.table.get_circumference()
+
+        self.phi = torch.from_numpy(np.random.uniform(
+            low=1e-7, high=2*np.pi-1e-7, size=n))
+        self.s = torch.tensor([self.table.get_arclength(phi)
+                              for phi in self.phi])
+
+        # self.s = torch.from_numpy(np.random.uniform(low=0, high=L, size=n)).float()
+
+    def set_u(self, u):
+        self.u = u
+
+    def get_u(self):
+        return self.u
+
+    def get_s(self):
+        return self.s
+
+    def parameters(self):
+        return [self.s]
+
+    def pair_s(self, periodic=True):
+        us = torch.cat((torch.unsqueeze(self.s, dim=1),
+                       torch.unsqueeze(torch.roll(self.s, -1), dim=1)), 1)
+
+        if not periodic:
+            us = us[:-1]
+
+        return us
+
+
+class Action:
+    def __init__(self, a, b, mode="classic", *args, **kwargs):
+        self.mode = mode
+        self.table = Table(a=a, b=b)
+
+    def __call__(self, phi0, phi1):
+        if self.mode == "classic":
+            G = np.linalg.norm(self.table.boundary(
+                phi0) - self.table.boundary(phi1), axis=0)
+        else:
+            G = None
+
+        return G
 
 
 def periodic_orbits(a, b, mu):

@@ -34,3 +34,6 @@ class Table:
 
     def get_arclength(self, phi):
         return ellipeinc(phi, 1-(self.a/self.b)**2)
+    
+    def get_circumference(self):
+        return self.get_arclength(2*np.pi)

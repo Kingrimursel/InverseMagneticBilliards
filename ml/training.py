@@ -1,8 +1,9 @@
+import os
 import torch
 from torch.utils.data import DataLoader
 
 
-def train_model(model, train_dataset, validation_dataset, loss_fn, num_epochs, batch_size=128, filename=None):
+def train_model(model, train_dataset, validation_dataset, loss_fn, num_epochs, batch_size=128, dir=None):
     # Set model to training mode
     model.train()
 
@@ -35,6 +36,9 @@ def train_model(model, train_dataset, validation_dataset, loss_fn, num_epochs, b
             # Forward pass
             outputs = model(inputs)
 
+            # required if output_dim=1, since output is of shape (output_dim, 1) then
+            outputs = torch.squeeze(outputs)
+
             # Calculate the loss
             loss = loss_fn(outputs, targets)
 
@@ -51,6 +55,8 @@ def train_model(model, train_dataset, validation_dataset, loss_fn, num_epochs, b
         for inputs, targets in validation_loader:
             # Forward pass
             outputs = model(inputs)
+            outputs = torch.squeeze(outputs)
+
             loss = loss_fn(outputs, targets)
 
             # Update validation loss
@@ -65,13 +71,13 @@ def train_model(model, train_dataset, validation_dataset, loss_fn, num_epochs, b
         print('Epoch: {}, Training Loss: {:.4f}, Validation Loss: {:.4f}'.format(
             epoch+1, train_loss, validation_loss))
 
-    if filename:
+    if dir:
         torch.save({
             "model_state_dict": model.state_dict(),
             "epochs": num_epochs,
             "train_losses": train_losses,
             "validation_losses": validation_losses
         },
-            filename)
+            os.path.join(dir, "model.pth"))
 
     return model, train_losses, validation_losses
