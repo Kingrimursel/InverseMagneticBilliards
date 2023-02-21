@@ -30,7 +30,7 @@ class Training:
         # relevant directories
         data_dir = os.path.join(self.this_dir, "data/raw", self.type, self.cs)
         model_dir = os.path.join(self.this_dir, "output/models",
-                         self.type, self.cs, self.today)
+                                 self.type, self.cs, self.today)
         Path(model_dir).mkdir(parents=True, exist_ok=True)
 
         if self.type == "ReturnMap":
@@ -69,7 +69,7 @@ class Training:
 
     def plot_loss(self):
         graphics_dir = os.path.join(self.this_dir, "output/graphics",
-                            self.type, self.cs, self.today)
+                                    self.type, self.cs, self.today)
         Path(graphics_dir).mkdir(parents=True, exist_ok=True)
         graphic_filename = os.path.join(graphics_dir, "loss.png")
 
@@ -153,6 +153,16 @@ class Diagnostics:
         error = torch.abs(100*(einfallswinkel - ausfallswinkel)/einfallswinkel)
 
         return error
+
+    def frequency(self):
+        phi_centered = self.orbit.phi - self.orbit.phi[0]
+
+        diff = phi_centered - torch.roll(phi_centered, -1)
+        m = torch.sum(diff > 0).item()
+
+        n = len(self.orbit)
+
+        return (m, n)
 
     def plot(self):
         error = self.reflection_error()

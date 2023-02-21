@@ -24,13 +24,13 @@ def minimization_procedure(a, b, dir=None):
         torch.load(filename)["model_state_dict"])
 
     # number of applications of return map
-    n_return = 6
+    frequency = (7, 6)
 
     # number of epochs for minimization
-    n_epochs = 500
+    n_epochs = 0
 
     # initialize an orbit
-    orbit = Orbit(a=a, b=b, n=n_return, init="uniform")
+    orbit = Orbit(a=a, b=b, frequency=frequency, init="uniform")
 
     # initialize and execute minimizer
     minimizer = Minimizer(orbit, generating_function.model, n_epochs=n_epochs, exact=False)
@@ -41,11 +41,15 @@ def minimization_procedure(a, b, dir=None):
     # initialize diagnostics
     diagnostics = Diagnostics(orbit)
 
+    observed_frequency = diagnostics.frequency()
+
+    print(f"Expected Frequency: (m,n) = {frequency}. Observed Frequency: (m,n) = {observed_frequency}")
+
     # plot the orbit
     orbit.plot()
 
     # plot the minimization loss
-    minimizer.plot()
+    # minimizer.plot()
 
     # plot whether the reflection_law is satisfied
     diagnostics.plot()

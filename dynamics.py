@@ -179,8 +179,9 @@ class Trajectory:
 
 
 class Orbit:
-    def __init__(self, a, b, n=2, mode="classic", init="random", *args, **kargs):
+    def __init__(self, a, b, frequency=(), mode="classic", init="random", *args, **kargs):
         self.mode = mode
+        self.n, self.m = frequency
         self.table = Table(a=a, b=b)
 
         self.s = []
@@ -190,9 +191,15 @@ class Orbit:
         if init == "random":
             offset = 1e-7
             self.phi = torch.tensor(np.random.uniform(
-                low=offset, high=2*np.pi-offset, size=n).astype("float32"), requires_grad=True)
+                low=offset, high=2*np.pi-offset, size=self.n).astype("float32"), requires_grad=True)
         elif init == "uniform":
-            self.phi = torch.arange(n)/n*2*torch.pi
+            indices = 1 + \
+                torch.remainder(((self.m)*torch.arange(self.n)), self.n)
+            print(indices)
+            # indices = torch.arange(n)
+            indices[indices == 0] = self.n
+
+            self.phi = indices/self.n*2*torch.pi
             self.phi.requires_grad_()
         else:
             return
@@ -207,6 +214,9 @@ class Orbit:
         self.u = self.points(x=phi) - self.points(x=torch.roll(phi, -1))
 
         return self.u
+
+    def __len__(self):
+        return len(self.phi)
 
     def get_s(self):
         return self.s
