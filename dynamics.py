@@ -179,7 +179,7 @@ class Trajectory:
 
 
 class Orbit:
-    def __init__(self, a, b, mode="classic", *args, **kargs):
+    def __init__(self, a, b, n=2, mode="classic", *args, **kargs):
         self.mode = mode
         self.table = Table(a=a, b=b)
 
@@ -187,15 +187,11 @@ class Orbit:
         self.phi = []
         self.u = []
 
-    def init_s(self, n):
-        L = self.table.get_circumference()
+        self.phi = torch.tensor(np.random.uniform(
+            low=1e-7, high=2*np.pi-1e-7, size=n).astype("float32"), requires_grad=True)
 
-        self.phi = torch.from_numpy(np.random.uniform(
-            low=1e-7, high=2*np.pi-1e-7, size=n))
-        self.s = torch.tensor([self.table.get_arclength(phi)
-                              for phi in self.phi])
-
-        # self.s = torch.from_numpy(np.random.uniform(low=0, high=L, size=n)).float()
+        # self.s = torch.tensor([self.table.get_arclength(phi)
+        #                      for phi in self.phi])
 
     def set_u(self, u):
         self.u = u
@@ -206,17 +202,23 @@ class Orbit:
     def get_s(self):
         return self.s
 
-    def parameters(self):
-        return [self.s]
+    def get_phi(self):
+        return self.phi
 
-    def pair_s(self, periodic=True):
-        us = torch.cat((torch.unsqueeze(self.s, dim=1),
-                       torch.unsqueeze(torch.roll(self.s, -1), dim=1)), 1)
+    def pairs(self, x, periodic=True):
+        pairs = torch.cat((torch.unsqueeze(x, dim=1),
+                           torch.unsqueeze(torch.roll(x, -1), dim=1)), 1)
 
         if not periodic:
-            us = us[:-1]
+            pairs = pairs[:-1]
 
-        return us
+        return pairs
+
+    def pair_phi(self, periodic=True):
+        return self.pairs(self.phi, periodic=periodic)
+
+    def pair_s(self, periodic=True):
+        return self.pairs(self.s, periodic=periodic)
 
 
 class Action:
