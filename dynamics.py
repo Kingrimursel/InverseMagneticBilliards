@@ -220,6 +220,18 @@ class Orbit:
     def pair_s(self, periodic=True):
         return self.pairs(self.s, periodic=periodic)
 
+    def plot(self):
+        fig, ax = plt.subplots()
+
+        ax.add_patch(self.table.get_patch(fill="white"))
+        ax.set_xlim([-3, 3])
+        ax.set_ylim([-3, 3])
+
+        points = self.table.boundary(self.phi.detach().numpy()).T
+        ax.scatter(points[:, 0], points[:, 1])
+
+        plt.show()
+
 
 class Action:
     def __init__(self, a, b, mode="classic", *args, **kwargs):

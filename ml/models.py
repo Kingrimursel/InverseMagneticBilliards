@@ -7,11 +7,11 @@ class ReLuModel(nn.Module):
 
         self.model = nn.Sequential(
             nn.Linear(input_dim, 10),
-            nn.ReLU(),
+            nn.ELU(),
             nn.Linear(10, 10),
-            nn.ReLU(),
+            nn.ELU(),
             nn.Linear(10, 10),
-            nn.ReLU(),
+            nn.ELU(),
             nn.Linear(10, output_dim)
         )
 
@@ -19,5 +19,5 @@ class ReLuModel(nn.Module):
         y = self.model(x)
         return y
     
-    def parameters(self, *args, **kwargs):
-        return self.model.parameters(*args, **kwargs)
+    #def parameters(self, *args, **kwargs):
+    #    return self.model.parameters(*args, **kwargs)

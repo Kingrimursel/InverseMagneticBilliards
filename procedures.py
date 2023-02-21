@@ -1,6 +1,9 @@
 import os
 from os.path import join
+import numpy as np
 import torch
+from torch.autograd.functional import jacobian
+from functorch import jacfwd, jacrev, vmap
 from pathlib import Path
 from matplotlib import pyplot as plt
 from datetime import datetime
@@ -87,12 +90,39 @@ def training_procedure(num_epochs=100, type="GeneratingFunction", cs="Custom"):
     training.plot_loss()
 
 
+def batch_jacobian(f, input):
+    """
+    Compute the diagonal entries of the jacobian of f with respect to x
+    :param f: the function
+    :param x: where it is to be evaluated
+    :return: diagonal of df/dx. First dimension is the derivative
+    """
+
+    # compute vectorized jacobian. For curvature because of nested derivatives, for some of the backward functions
+    # the forward mode AD is not implemented
+    if input.ndim == 1:
+        try:
+            jac = jacfwd(f)(input)
+        except NotImplementedError:
+            jac = jacrev(f)(input)
+
+    else:
+        try:
+            jac = vmap(jacfwd(f), in_dims=(0,))(input)
+        except NotImplementedError:
+            jac = vmap(jacrev(f), in_dims=(0,))(input)
+
+    return jac
+
+
 def minimization_procedure(a, b, dir=None):
-    filename = os.path.join(os.path.dirname(__file__), "output/models", dir, "model.pth")
+    filename = os.path.join(os.path.dirname(__file__),
+                            "output/models", dir, "model.pth")
 
     generating_function = ReLuModel(input_dim=2, output_dim=1)
-    generating_function.load_state_dict(torch.load(filename)["model_state_dict"])
-
+    #generating_function.load_state_dict(
+    #    torch.load(filename)["model_state_dict"])
+    
     # number of applications of return map
     n = 2
 
@@ -100,22 +130,34 @@ def minimization_procedure(a, b, dir=None):
     orbit = Orbit(a=a, b=b, n=n)
     # orbit.set_u(u_map(orbit.pair_s()))
 
-    optimizer = torch.optim.Adam([orbit.phi], lr=1e-3)
+    optimizer = torch.optim.Adam([orbit.phi], lr=1e-2)
 
-    print(generating_function(orbit.pair_phi()[0]))
-    print(generating_function(orbit.pair_phi()))
+    alpha = 1e3
 
-    n_epochs = 0
+    # TODO: plot the two loss curves
+    # TODO: evaluate whether einfallswinkel=ausfallswinkel is satisfied
+
+    n_epochs = 5000
     for epoch in range(n_epochs):
         optimizer.zero_grad()
-        action = torch.abs(torch.sum(generating_function(orbit.pair_phi())))
-        action.backward()
 
+        grad_norm = torch.linalg.norm(batch_jacobian(generating_function.model, orbit.pair_phi()).flatten())
+
+        points = torch.stack([orbit.table.a*torch.cos(orbit.phi), orbit.table.b*torch.sin(orbit.phi)]).T
+        dists = torch.cdist(points, points)
+
+        repulsive_loss = torch.exp(-torch.mean(dists))
+
+        loss = grad_norm + alpha*repulsive_loss
+
+        loss.backward()
         optimizer.step()
 
-        print('Epoch: {}, Action: {:.4f}'.format(epoch+1, action))
+        with torch.no_grad():
+            orbit.phi.remainder_(2*np.pi)
 
-        # test = [-orbit.u[0] + orbit.u[1], -orbit.u[1] + orbit.u[2]]
-        # print(orbit.s)
+        print('Epoch: {}, Loss: {:.4f}'.format(epoch+1, grad_norm))
+
+    orbit.plot()
 
     print(orbit.phi)
