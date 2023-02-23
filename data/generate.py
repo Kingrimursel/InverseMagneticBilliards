@@ -4,7 +4,7 @@ import torch
 
 import numpy as np
 from dynamics import Trajectory, Action
-from setting import Table
+from settings import DATADIR
 
 
 def generate_dataset(a, b, mu, n_samples, filename, cs="Birkhoff", type="ReturnMap", mode="classic"):
@@ -16,8 +16,7 @@ def generate_dataset(a, b, mu, n_samples, filename, cs="Birkhoff", type="ReturnM
         mu (float): larmor radius
     """
 
-    filename = os.path.join(os.path.dirname(__file__),
-                            "raw", type, cs, filename)
+    filename = os.path.join(DATADIR, type, cs, filename)
 
     if type == "ReturnMap":
         offset = 1e-10

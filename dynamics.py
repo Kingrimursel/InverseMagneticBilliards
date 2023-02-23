@@ -181,7 +181,12 @@ class Trajectory:
 class Orbit:
     def __init__(self, a, b, frequency=(), mode="classic", init="random", *args, **kargs):
         self.mode = mode
-        self.m, self.n = frequency
+
+        if len(frequency) > 0:
+            self.m, self.n = frequency
+        else:
+            self.m, self.n = (0, 0)
+
         self.table = Table(a=a, b=b)
 
         self.s = []
@@ -208,6 +213,9 @@ class Orbit:
 
     def set_u(self, u):
         self.u = u
+
+    def set_phi(self, phi):
+        self.phi = phi
 
     def get_u(self):
         phi = self.get_phi()
@@ -258,6 +266,10 @@ class Orbit:
         yy = np.hstack([points[:, 1], points[0, 1]])
 
         ax.plot(xx, yy, c="black")
+        ax.set_aspect("equal")
+
+        for i, (xi, yi) in enumerate(zip(xx[:-1], yy[:-1])):
+            plt.annotate(f'{i + 1}', xy=(xi, yi), xytext=(1.2*xi, 1.2*yi))
 
         plt.show()
 

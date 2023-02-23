@@ -1,6 +1,11 @@
 import os
 import torch
+from pathlib import Path
 from torch.utils.data import DataLoader
+
+from util import batch_jacobian
+from dynamics import Orbit
+from physics import DiscreteAction
 
 
 def train_model(model, train_dataset, validation_dataset, loss_fn, num_epochs, batch_size=128, dir=None):
@@ -19,8 +24,6 @@ def train_model(model, train_dataset, validation_dataset, loss_fn, num_epochs, b
 
     validation_loader = DataLoader(
         validation_dataset, batch_size=batch_size, shuffle=True, pin_memory=True)
-
-    # TODO: GPU
 
     # Iterate over training epochs
     for epoch in range(num_epochs):
@@ -51,22 +54,34 @@ def train_model(model, train_dataset, validation_dataset, loss_fn, num_epochs, b
             # Track training loss
             epoch_train_loss += loss.item()
 
-        # calculate validation loss
-        for inputs, targets in validation_loader:
-            # Forward pass
-            outputs = model(inputs)
-            outputs = torch.squeeze(outputs)
+        with torch.no_grad():
+            # calculate validation loss
+            for inputs, targets in validation_loader:
+                # Forward pass
+                outputs = model(inputs)
+                outputs = torch.squeeze(outputs)
 
-            loss = loss_fn(outputs, targets)
+                loss = loss_fn(outputs, targets)
 
-            # Update validation loss
-            epoch_validation_loss += loss.item()
+                # Update validation loss
+                epoch_validation_loss += loss.item()
 
         # Calculate average losses
         train_loss = epoch_train_loss / len(train_dataset)
         validation_loss = epoch_validation_loss / len(validation_dataset)
         train_losses.append(train_loss)
         validation_losses.append(validation_loss)
+
+        # save model
+        Path(os.path.join(dir, "epochs", str(epoch+1))).mkdir(parents=True, exist_ok=True)
+        if dir:
+            torch.save({
+                "model_state_dict": model.state_dict(),
+                "epoch": epoch+1,
+                "train_loss": train_loss,
+                "validation_loss": validation_loss
+            },
+                os.path.join(dir, "epochs", str(epoch+1), "model.pth"))
 
         print('Epoch: {}, Training Loss: {:.4f}, Validation Loss: {:.4f}'.format(
             epoch+1, train_loss, validation_loss))
