@@ -1,6 +1,6 @@
 import torch
 import numpy as np
-from functorch import jacfwd, jacrev, vmap
+from functorch import jacfwd, jacrev, vmap, hessian
 from scipy.optimize import root_scalar
 from matplotlib.widgets import Slider
 
@@ -95,6 +95,15 @@ def pair(x, periodic=True):
         pairs = pairs[:-1]
 
     return pairs
+
+
+def batch_hessian(f, input):
+    if input.ndim == 1:
+        hes = hessian(f)(input)
+    else:
+        jac = vmap(hessian(f), in_dims=(0,))(input)
+
+    return jac
 
 
 def batch_jacobian(f, input):

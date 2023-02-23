@@ -11,7 +11,7 @@ from physics import DiscreteAction
 from dynamics import Orbit
 from ml.training import train_model
 from ml.models import ReLuModel
-from util import batch_jacobian, angle_between, sigmoid_scaled
+from util import batch_jacobian, batch_hessian, angle_between, sigmoid_scaled
 from settings import MODELDIR, DATADIR, GRAPHICSDIR
 
 
@@ -25,7 +25,6 @@ class Training:
         self.model = None
         self.training_loss = 0
         self.validation_loss = 0
-        self.jac_loss = 0
 
         self.today = datetime.today().strftime("%Y-%m-%d")
 
@@ -199,10 +198,15 @@ class Diagnostics:
 
         return (m, n)
 
-    def gradient(self, a, b, dir):
-        # TODO: when training model, save the gradient loss. Then we just need to load it here
-        # TODO: can remove the action_fn as an initialization variable if this is implemented
+    def derivative(self, a, b, dir, ord=1):
+        """Analyze the networks gradients
 
+        Args:
+            a (int): length of first semi axis
+            b (int): length of second semi axis
+            dir (string): directory where trained model is stored
+            ord (int, optional): order of derivative. 1 corresponds to the Jacobian, 2 to the Hessian. Defaults to 1.
+        """
         model_dir = os.path.join(MODELDIR, dir)
 
         train_settings = torch.load(os.path.join(model_dir, "model.pth"))
@@ -216,15 +220,21 @@ class Diagnostics:
         validation_loader = DataLoader(
             validation_dataset, batch_size=1024, shuffle=True, pin_memory=True)
 
-        jac_diff_losses = []
-        jac_emp_losses = []
-        jac_ex_losses = []
+        deriv_diff_losses = []
+        deriv_emp_losses = []
+        deriv_ex_losses = []
+
+        if ord == 1:
+            deriv_fn = batch_jacobian
+        elif ord == 2:
+            deriv_fn = batch_hessian
+        else:
+            return
 
         for epoch in range(1, train_settings["epochs"] + 1):
-
-            epoch_jac_diff_loss = 0.0
-            epoch_jac_emp_loss = 0.0
-            epoch_jac_ex_loss = 0.0
+            epoch_deriv_diff_loss = 0.0
+            epoch_deriv_emp_loss = 0.0
+            epoch_deriv_ex_loss = 0.0
 
             for inputs, targets in validation_loader:
                 epoch_settings = torch.load(os.path.join(
@@ -233,47 +243,46 @@ class Diagnostics:
                 model.load_state_dict(epoch_settings["model_state_dict"])
 
                 # calculate empirical jacobian
-                jac_emp = torch.squeeze(
-                    batch_jacobian(model.model, inputs))
+                deriv_emp = torch.squeeze(deriv_fn(model.model, inputs))
 
                 # calculate exact jacobian
                 orbit = Orbit(a, b)
                 orbit.set_phi(inputs)
 
                 discrete_action = DiscreteAction(None, orbit, exact=True)
-                jac_ex = batch_jacobian(discrete_action, inputs)
+                deriv_ex = deriv_fn(discrete_action, inputs)
 
                 # compute jacobian loss
-                new_jac_diff_loss = torch.linalg.norm(
-                    jac_emp - jac_ex, ord="fro").pow(2).item()
+                new_deriv_diff_loss = (deriv_emp - deriv_ex).pow(2).sum().item()
 
-                new_jac_ex_loss = torch.linalg.norm(
-                    jac_ex, ord="fro").pow(2).item()
-                new_jac_emp_loss = torch.linalg.norm(
-                    jac_emp, ord="fro").pow(2).item()
+                new_deriv_ex_loss = deriv_ex.pow(2).sum().item()
+                new_deriv_emp_loss = deriv_emp.pow(2).sum().item()
 
                 # save epoch loss
-                epoch_jac_diff_loss += new_jac_diff_loss
-                epoch_jac_emp_loss += new_jac_emp_loss
-                epoch_jac_ex_loss += new_jac_ex_loss
+                epoch_deriv_diff_loss += new_deriv_diff_loss
+                epoch_deriv_emp_loss += new_deriv_emp_loss
+                epoch_deriv_ex_loss += new_deriv_ex_loss
 
-            jac_diff_loss = epoch_jac_diff_loss / len(validation_dataset)
-            jac_emp_loss = epoch_jac_emp_loss / len(validation_dataset)
-            jac_ex_loss = epoch_jac_ex_loss / len(validation_dataset)
-            jac_diff_losses.append(jac_diff_loss)
-            jac_emp_losses.append(jac_emp_loss)
-            jac_ex_losses.append(jac_ex_loss)
+            deriv_diff_loss = epoch_deriv_diff_loss / len(validation_dataset)
+            deriv_emp_loss = epoch_deriv_emp_loss / len(validation_dataset)
+            deriv_ex_loss = epoch_deriv_ex_loss / len(validation_dataset)
+            deriv_diff_losses.append(deriv_diff_loss)
+            deriv_emp_losses.append(deriv_emp_loss)
+            deriv_ex_losses.append(deriv_ex_loss)
 
             print("Epoch: {}. Diff Loss: {:.4f}. Emp Loss:{:.4f}. Ex Loss: {:.4f}".format(
-                epoch, jac_diff_loss, jac_emp_loss, jac_ex_loss))
-
+                epoch, deriv_diff_loss, deriv_emp_loss, deriv_ex_loss))
+            
         fig = plt.figure()
-        fig.suptitle("Gradient Errors")
+        if ord == 1:
+            fig.suptitle("Gradient Errors")
+        else:
+            fig.suptitle("Hessian Errors")
         plt.xlabel("Epoch")
         plt.ylabel("Error")
-        plt.plot(jac_diff_losses, label="difference")
-        plt.plot(jac_emp_losses, label="empirical")
-        plt.plot(jac_ex_losses, label="exact")
+        plt.plot(deriv_diff_losses, label="difference")
+        plt.plot(deriv_emp_losses, label="empirical")
+        plt.plot(deriv_ex_losses, label="exact")
         plt.legend()
 
         plt.show()

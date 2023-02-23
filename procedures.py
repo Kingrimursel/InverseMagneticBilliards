@@ -52,13 +52,13 @@ def minimization_procedure(a, b, n_epochs=100, dir=None, type="GeneratingFunctio
     print(f"Expected Frequency: (m,n) = {frequency}. Observed Frequency: (m,n) = {observed_frequency}")
 
     # plot the orbit
-    orbit.plot()
+    # orbit.plot()
 
     # plot the minimization loss
     # minimizer.plot()
 
     # plot the gradient analysis
-    # diagnostics.gradient(a, b, dir)
+    diagnostics.derivative(a, b, dir, ord=2)
 
     # plot whether the reflection_law is satisfied
-    diagnostics.reflection()
+    # diagnostics.reflection()
