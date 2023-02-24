@@ -4,7 +4,7 @@ import torch
 
 import numpy as np
 from dynamics import Trajectory, Action
-from settings import DATADIR
+from conf import DATADIR
 
 
 def generate_dataset(a, b, mu, n_samples, filename, cs="Birkhoff", type="ReturnMap", mode="classic"):

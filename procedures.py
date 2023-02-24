@@ -1,11 +1,12 @@
 import os
 import torch
+from pathlib import Path
 
 from ml.models import ReLuModel
 from dynamics import Orbit
 
 from helper import Training, Minimizer, Diagnostics
-from settings import MODELDIR
+from conf import MODELDIR, GRAPHICSDIR, TODAY
 
 
 def training_procedure(**kwargs):
@@ -49,13 +50,15 @@ def minimization_procedure(a, b, n_epochs=100, dir=None, type="GeneratingFunctio
     print(f"Expected Frequency: (m,n) = {frequency}. Observed Frequency: (m,n) = {observed_frequency}")
 
     # plot the orbit
-    # orbit.plot()
+    Path(os.path.join(GRAPHICSDIR, type, cs, TODAY)).mkdir(parents=True, exist_ok=True)
+    img_path = os.path.join(GRAPHICSDIR, type, cs, TODAY, "orbit.png")
+    orbit.plot(img_path=img_path)
 
     # plot the minimization loss
     # minimizer.plot()
 
     # plot the gradient analysis
-    diagnostics.derivative(a, b, dir, ord=2)
+    # diagnostics.derivative(a, b, dir)
 
     # plot whether the reflection_law is satisfied
     # diagnostics.reflection()

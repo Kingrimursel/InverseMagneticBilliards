@@ -1,3 +1,4 @@
+import os
 import torch
 import subprocess
 from io import BytesIO
@@ -8,7 +9,7 @@ import pandas as pd
 
 from functorch import jacfwd, jacrev, vmap, hessian
 from scipy.optimize import root_scalar
-from matplotlib.widgets import Slider
+from conf import GRAPHICSDIR
 
 
 def get_legend(a, b, m, n):
@@ -135,22 +136,3 @@ def batch_jacobian(f, input):
             jac = vmap(jacrev(f), in_dims=(0,))(input)
 
     return jac
-
-
-def get_least_busy_gpu(verbose=True):
-    gpu_stats = subprocess.check_output(
-        ["nvidia-smi", "--format=csv", "--query-gpu=memory.used,memory.free"])
-    gpu_df = pd.read_csv(BytesIO(gpu_stats),
-                         names=['memory.used', 'memory.free'],
-                         skiprows=1)
-    gpu_df['memory.free'] = gpu_df['memory.free'].map(
-        lambda x: x.rstrip(' [MiB]'))
-    gpu_df["memory.free"] = pd.to_numeric(gpu_df["memory.free"])
-    idx = gpu_df['memory.free'].idxmax()
-
-    if verbose:
-        print('GPU usage:\n{}'.format(gpu_df))
-        print('Returning GPU{} with {} free MiB'.format(
-            idx, gpu_df.iloc[idx]['memory.free']))
-
-    return idx

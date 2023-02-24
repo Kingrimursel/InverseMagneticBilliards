@@ -249,7 +249,7 @@ class Orbit:
     def pair_s(self, periodic=True):
         return self.pairs(self.s, periodic=periodic)
 
-    def plot(self):
+    def plot(self, img_path=None):
         fig, ax = plt.subplots()
 
         ax.add_patch(self.table.get_patch(fill="white"))
@@ -270,6 +270,9 @@ class Orbit:
 
         for i, (xi, yi) in enumerate(zip(xx[:-1], yy[:-1])):
             plt.annotate(f'{i + 1}', xy=(xi, yi), xytext=(1.2*xi, 1.2*yi))
+
+        if img_path is not None:
+            plt.savefig(img_path)
 
         plt.show()
 

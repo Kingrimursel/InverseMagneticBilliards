@@ -15,12 +15,30 @@ if __name__ == "__main__":
     mode = "classic"
     type = "GeneratingFunction"
 
-    # generate_dataset(a, b, mu, 100000, "train100k.npy", cs="Custom", mode="classic", type="GeneratingFunction")
-    #training_procedure(num_epochs=10,
-    #                   type=type,
-    #                   cs=cs,
-    #                   train_dataset="train100k.npy",
-    #                   save=False,
-    #                   alpha=1e-2)
+    exec = "minimize"
 
-    minimization_procedure(a, b, n_epochs=100, dir="GeneratingFunction/Custom/2023-02-23", type=type, cs=cs)
+    if exec == "generate":
+        generate_dataset(a,
+                         b,
+                         mu,
+                         100000,
+                         "train100k.npy",
+                         cs="Custom",
+                         mode="classic",
+                         type="GeneratingFunction")
+    elif exec == "train":
+        training_procedure(num_epochs=100,
+                           type=type,
+                           cs=cs,
+                           train_dataset="train100k.npy",
+                           save=True,
+                           batch_size=1024,
+                           alpha=1e0)
+    elif exec == "minimize":
+        minimization_procedure(
+            a,
+            b,
+            n_epochs=100,
+            dir="GeneratingFunction/Custom/2023-02-24",  # 23
+            type=type,
+            cs=cs)

@@ -12,7 +12,7 @@ from dynamics import Orbit
 from ml.training import train_model
 from ml.models import ReLuModel
 from util import batch_jacobian, batch_hessian, angle_between, sigmoid_scaled
-from settings import MODELDIR, DATADIR, GRAPHICSDIR
+from conf import device, MODELDIR, DATADIR, TODAY, GRAPHICSDIR
 
 
 class Training:
@@ -21,6 +21,7 @@ class Training:
                  cs="Custom",
                  type="ReturnMap",
                  train_dataset="train50k.npy",
+                 batch_size=128,
                  save=True,
                  alpha=1e-3):
 
@@ -30,20 +31,19 @@ class Training:
         self.train_dataset = train_dataset
         self.save = save
         self.alpha = alpha
+        self.batch_size = batch_size
 
         self.model = None
         self.training_loss = 0.
         self.hess_train_loss = 0.
         self.validation_loss = 0.
 
-        self.today = datetime.today().strftime("%Y-%m-%d")
-
     def train(self):
         # relevant directories
         data_dir = os.path.join(DATADIR, self.type, self.cs)
 
         if self.save:
-            model_dir = os.path.join(MODELDIR, self.type, self.cs, self.today)
+            model_dir = os.path.join(MODELDIR, self.type, self.cs, TODAY)
             Path(model_dir).mkdir(parents=True, exist_ok=True)
         else:
             model_dir = None
@@ -77,7 +77,9 @@ class Training:
                                                                              torch.nn.MSELoss(),
                                                                              self.num_epochs,
                                                                              dir=model_dir,
-                                                                             alpha=self.alpha)
+                                                                             alpha=self.alpha,
+                                                                             batch_size=self.batch_size,
+                                                                             device=device)
 
         self.model = model
         self.training_loss = training_loss
@@ -85,8 +87,9 @@ class Training:
         self.hess_train_loss = hess_train_loss
 
     def plot_loss(self):
-        graphics_dir = os.path.join(
-            GRAPHICSDIR, self.type, self.cs, self.today)
+        graphics_dir = os.path.join(GRAPHICSDIR, self.type, self.cs, TODAY)
+        # graphics_dir = os.path.join(
+        #    GRAPHICSDIR, self.type, self.cs, self.today)
         Path(graphics_dir).mkdir(parents=True, exist_ok=True)
         graphic_filename = os.path.join(graphics_dir, "loss.png")
 
@@ -96,7 +99,7 @@ class Training:
         plt.plot(self.validation_loss, label="validation", c="pink")
         plt.plot(self.hess_train_loss, label="hessian train", c="green")
         plt.yscale("log")
-        plt.xscale("log")
+        # plt.xscale("log")
         plt.legend(loc="upper right")
         plt.savefig(graphic_filename)
 
@@ -215,7 +218,7 @@ class Diagnostics:
 
         return (m, n)
 
-    def derivative(self, a, b, dir, ord=1):
+    def derivative(self, a, b, dir):
         """Analyze the networks gradients
 
         Args:
@@ -234,19 +237,14 @@ class Diagnostics:
 
         validation_dataset = GeneratingFunctionDataset(
             os.path.join(data_dir, "validate10k.npy"))
+
+        # TODO: set shuffle to True again
         validation_loader = DataLoader(
             validation_dataset, batch_size=1024, shuffle=True, pin_memory=True)
 
         deriv_diff_losses = []
         deriv_emp_losses = []
         deriv_ex_losses = []
-
-        if ord == 1:
-            deriv_fn = batch_jacobian
-        elif ord == 2:
-            deriv_fn = batch_hessian
-        else:
-            return
 
         for epoch in range(1, train_settings["epochs"] + 1):
             epoch_deriv_diff_loss = 0.0
@@ -260,16 +258,17 @@ class Diagnostics:
                 model.load_state_dict(epoch_settings["model_state_dict"])
 
                 # calculate empirical jacobian
-                deriv_emp = torch.squeeze(deriv_fn(model.model, inputs))
+                deriv_emp = torch.squeeze(batch_hessian(model.model, inputs))
 
                 # calculate exact jacobian
                 orbit = Orbit(a, b)
                 orbit.set_phi(inputs)
 
                 discrete_action = DiscreteAction(None, orbit, exact=True)
-                deriv_ex = torch.squeeze(deriv_fn(discrete_action, inputs))
+                deriv_ex = torch.squeeze(
+                    batch_hessian(discrete_action, inputs))
 
-                # compute jacobian loss
+                # compute jacobian losses
                 new_deriv_diff_loss = (
                     deriv_emp - deriv_ex).pow(2).mean().item()
 
@@ -292,10 +291,7 @@ class Diagnostics:
                 epoch, deriv_diff_loss, deriv_emp_loss, deriv_ex_loss))
 
         fig = plt.figure()
-        if ord == 1:
-            fig.suptitle("Gradient Errors")
-        else:
-            fig.suptitle("Hessian Errors")
+        fig.suptitle("Hessian Errors")
         plt.xlabel("Epoch")
         plt.ylabel("Error")
         plt.plot(deriv_diff_losses, label="difference")
