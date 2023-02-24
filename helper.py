@@ -16,23 +16,37 @@ from settings import MODELDIR, DATADIR, GRAPHICSDIR
 
 
 class Training:
-    def __init__(self, num_epochs=100, cs="Custom", type="ReturnMap", train_dataset="train50k.npy"):
+    def __init__(self,
+                 num_epochs=100,
+                 cs="Custom",
+                 type="ReturnMap",
+                 train_dataset="train50k.npy",
+                 save=True,
+                 alpha=1e-3):
+
         self.num_epochs = num_epochs
         self.cs = cs
         self.type = type
         self.train_dataset = train_dataset
+        self.save = save
+        self.alpha = alpha
 
         self.model = None
-        self.training_loss = 0
-        self.validation_loss = 0
+        self.training_loss = 0.
+        self.hess_train_loss = 0.
+        self.validation_loss = 0.
 
         self.today = datetime.today().strftime("%Y-%m-%d")
 
     def train(self):
         # relevant directories
         data_dir = os.path.join(DATADIR, self.type, self.cs)
-        model_dir = os.path.join(MODELDIR, self.type, self.cs, self.today)
-        Path(model_dir).mkdir(parents=True, exist_ok=True)
+
+        if self.save:
+            model_dir = os.path.join(MODELDIR, self.type, self.cs, self.today)
+            Path(model_dir).mkdir(parents=True, exist_ok=True)
+        else:
+            model_dir = None
 
         if self.type == "ReturnMap":
             Dataset = ReturnMapDataset
@@ -57,16 +71,18 @@ class Training:
         model = ReLuModel(input_dim=input_dim, output_dim=output_dim)
 
         # train
-        model, training_loss, validation_loss = train_model(model,
-                                                            train_dataset,
-                                                            validation_dataset,
-                                                            torch.nn.MSELoss(),
-                                                            self.num_epochs,
-                                                            dir=model_dir)
+        model, training_loss, validation_loss, hess_train_loss = train_model(model,
+                                                                             train_dataset,
+                                                                             validation_dataset,
+                                                                             torch.nn.MSELoss(),
+                                                                             self.num_epochs,
+                                                                             dir=model_dir,
+                                                                             alpha=self.alpha)
 
         self.model = model
         self.training_loss = training_loss
         self.validation_loss = validation_loss
+        self.hess_train_loss = hess_train_loss
 
     def plot_loss(self):
         graphics_dir = os.path.join(
@@ -78,6 +94,7 @@ class Training:
         plt.suptitle(self.type)
         plt.plot(self.training_loss, label="train", c="navy")
         plt.plot(self.validation_loss, label="validation", c="pink")
+        plt.plot(self.hess_train_loss, label="hessian train", c="green")
         plt.yscale("log")
         plt.xscale("log")
         plt.legend(loc="upper right")
@@ -250,13 +267,14 @@ class Diagnostics:
                 orbit.set_phi(inputs)
 
                 discrete_action = DiscreteAction(None, orbit, exact=True)
-                deriv_ex = deriv_fn(discrete_action, inputs)
+                deriv_ex = torch.squeeze(deriv_fn(discrete_action, inputs))
 
                 # compute jacobian loss
-                new_deriv_diff_loss = (deriv_emp - deriv_ex).pow(2).sum().item()
+                new_deriv_diff_loss = (
+                    deriv_emp - deriv_ex).pow(2).mean().item()
 
-                new_deriv_ex_loss = deriv_ex.pow(2).sum().item()
-                new_deriv_emp_loss = deriv_emp.pow(2).sum().item()
+                new_deriv_ex_loss = deriv_ex.pow(2).mean().item()
+                new_deriv_emp_loss = deriv_emp.pow(2).mean().item()
 
                 # save epoch loss
                 epoch_deriv_diff_loss += new_deriv_diff_loss
@@ -272,7 +290,7 @@ class Diagnostics:
 
             print("Epoch: {}. Diff Loss: {:.4f}. Emp Loss:{:.4f}. Ex Loss: {:.4f}".format(
                 epoch, deriv_diff_loss, deriv_emp_loss, deriv_ex_loss))
-            
+
         fig = plt.figure()
         if ord == 1:
             fig.suptitle("Gradient Errors")

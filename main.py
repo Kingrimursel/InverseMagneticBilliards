@@ -16,9 +16,11 @@ if __name__ == "__main__":
     type = "GeneratingFunction"
 
     # generate_dataset(a, b, mu, 100000, "train100k.npy", cs="Custom", mode="classic", type="GeneratingFunction")
-    #training_procedure(num_epochs=100,
+    #training_procedure(num_epochs=10,
     #                   type=type,
     #                   cs=cs,
-    #                   train_dataset="train100k.npy")
+    #                   train_dataset="train100k.npy",
+    #                   save=False,
+    #                   alpha=1e-2)
 
     minimization_procedure(a, b, n_epochs=100, dir="GeneratingFunction/Custom/2023-02-23", type=type, cs=cs)

@@ -3,18 +3,28 @@ import torch
 from pathlib import Path
 from torch.utils.data import DataLoader
 
-from util import batch_jacobian
+from util import batch_jacobian, batch_hessian
 from dynamics import Orbit
 from physics import DiscreteAction
 
 
-def train_model(model, train_dataset, validation_dataset, loss_fn, num_epochs, batch_size=128, dir=None):
+def train_model(model,
+                train_dataset,
+                validation_dataset,
+                loss_fn,
+                num_epochs,
+                batch_size=128,
+                dir=None,
+                alpha=1e-3):
+
     # Set model to training mode
     model.train()
 
     # Track loss
     train_losses = []
     validation_losses = []
+
+    hess_train_losses = []
 
     # Optimizer
     optimizer = torch.optim.Adam(model.parameters(), lr=1e-3)
@@ -30,6 +40,7 @@ def train_model(model, train_dataset, validation_dataset, loss_fn, num_epochs, b
         # Track training loss
         epoch_train_loss = 0.0
         epoch_validation_loss = 0.0
+        epoch_hess_train_loss = 0.0
 
         # Train the model for one epoch
         for inputs, targets in train_loader:
@@ -42,17 +53,25 @@ def train_model(model, train_dataset, validation_dataset, loss_fn, num_epochs, b
             # required if output_dim=1, since output is of shape (output_dim, 1) then
             outputs = torch.squeeze(outputs)
 
-            # Calculate the loss
+            # Calculate main loss
             loss = loss_fn(outputs, targets)
 
+            # regularizer loss
+            hessian = torch.squeeze(batch_hessian(model.model, inputs))
+            hess_loss = torch.mean(hessian.pow(2))
+
+            # total loss as weighted sum
+            total_loss = loss + alpha*hess_loss
+
             # Backward pass
-            loss.backward()
+            total_loss.backward()
 
             # Update parameters
             optimizer.step()
 
             # Track training loss
             epoch_train_loss += loss.item()
+            epoch_hess_train_loss += alpha*hess_loss.item()
 
         with torch.no_grad():
             # calculate validation loss
@@ -68,13 +87,17 @@ def train_model(model, train_dataset, validation_dataset, loss_fn, num_epochs, b
 
         # Calculate average losses
         train_loss = epoch_train_loss / len(train_dataset)
+        hess_train_loss = epoch_hess_train_loss / len(train_dataset)
         validation_loss = epoch_validation_loss / len(validation_dataset)
         train_losses.append(train_loss)
         validation_losses.append(validation_loss)
+        hess_train_losses.append(hess_train_loss)
 
         # save model
-        Path(os.path.join(dir, "epochs", str(epoch+1))).mkdir(parents=True, exist_ok=True)
         if dir:
+            Path(os.path.join(dir, "epochs", str(epoch+1))
+                 ).mkdir(parents=True, exist_ok=True)
+
             torch.save({
                 "model_state_dict": model.state_dict(),
                 "epoch": epoch+1,
@@ -83,8 +106,8 @@ def train_model(model, train_dataset, validation_dataset, loss_fn, num_epochs, b
             },
                 os.path.join(dir, "epochs", str(epoch+1), "model.pth"))
 
-        print('Epoch: {}, Training Loss: {:.4f}, Validation Loss: {:.4f}'.format(
-            epoch+1, train_loss, validation_loss))
+        print('Epoch: {}, Training Loss: {:.4f}, Validation Loss: {:.4f}. Hessian Loss: {:.4f}'.format(
+            epoch+1, train_loss, validation_loss, hess_train_loss))
 
     if dir:
         torch.save({
@@ -95,4 +118,4 @@ def train_model(model, train_dataset, validation_dataset, loss_fn, num_epochs, b
         },
             os.path.join(dir, "model.pth"))
 
-    return model, train_losses, validation_losses
+    return model, train_losses, validation_losses, hess_train_losses

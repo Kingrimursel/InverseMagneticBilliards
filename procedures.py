@@ -8,11 +8,8 @@ from helper import Training, Minimizer, Diagnostics
 from settings import MODELDIR
 
 
-def training_procedure(num_epochs=100, type="GeneratingFunction", cs="Custom", train_dataset="train50k.npy"):
-    training = Training(num_epochs=num_epochs,
-                        type=type,
-                        cs=cs,
-                        train_dataset=train_dataset)
+def training_procedure(**kwargs):
+    training = Training(**kwargs)
     training.train()
     training.plot_loss()
 
