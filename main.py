@@ -12,7 +12,7 @@ if __name__ == "__main__":
     mu = 1/5
 
     cs = "Custom"
-    mode = "birkhoff"
+    mode = "inversemagnetic"
     type = "GeneratingFunction"
 
     exec = "generate"
@@ -43,8 +43,10 @@ if __name__ == "__main__":
             type=type,
             cs=cs)
     else:
-        from util import area_overlap
+        from util import area_overlap, solve_polynomial
 
-        test = area_overlap(2, 1, 0, 1, 0.2)
+        # test = area_overlap(2, 1, 0, 1, 0.2)
+        test2 = solve_polynomial(1, 1, 1, 1, -1)
 
-        print(test)
+        # print(test)
+        print(test2)

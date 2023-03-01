@@ -3,6 +3,8 @@ import numpy as np
 import matplotlib as mpl
 from scipy.special import ellipeinc
 
+from util import solve_polynomial
+
 
 class Table:
     def __init__(self, a=1, b=1):
@@ -47,6 +49,11 @@ class Table:
             phi (float): the polar angle
         """
 
+        # phi = np.zeros(len(p))
+
+        # phi[p[:, 1] >= 0] = np.arccos(p[p[:, 1] >= 0, 0]/self.a)
+        # phi[p[:, 1] < 0] = 2*np.pi - np.arccos(p[p[:, 1] < 0, 0]/self.a)
+
         if p[1] >= 0:
             phi = np.arccos(p[0]/self.a)
         else:
@@ -62,3 +69,36 @@ class Table:
 
     def get_circumference(self):
         return self.get_arclength(2*np.pi)
+
+    def get_reenter_point(self, center, mu, exit_point):
+        """ Get the point where the particle reenters the table after a bounce
+
+        Args:
+            mu (float): center of the larmor circle
+            exit_point (np.array of shape (2)): point where the particle leaves the table
+        """
+
+        a4 = self.a**2*(center[1]**2 - self.b**2) + \
+            self.b**2*(center[0] - mu)**2
+        a3 = 4*self.a**2*mu*center[1]
+        a2 = 2*(self.a**2*(center[1]**2 - self.b**2 +
+                2*mu**2) + self.b**2*(center[0]**2 - mu**2))
+        a1 = 4*self.a**2*mu*center[1]
+        a0 = self.a**2*(center[1]**2 - self.b**2) + \
+            self.b**2*(center[0] + mu)**2
+
+        # solve the polynomial
+        roots = solve_polynomial(a4, a3, a2, a1, a0)
+
+        # get corresponding intersetion points
+
+        # TODO: implement a class "LarmorCircle"
+        intersections = np.array(
+            [center[0] + mu*(1-roots**2)/(1+roots**2), center[1] + 2*mu*roots/(1+roots**2)]).T
+
+        idx_reenter_point = np.argmax(
+            np.sum((intersections - exit_point)**2, axis=1))
+
+        reenter_point = intersections[idx_reenter_point]
+
+        return reenter_point

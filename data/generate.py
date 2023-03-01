@@ -42,18 +42,17 @@ def generate_dataset(a, b, mu, n_samples, filename, cs="Birkhoff", type="ReturnM
     elif type == "GeneratingFunction":
         # TODO: also for the classic case, generate the dataset using theta0
         offset = 1e-7
-        phi0s = np.random.uniform(low=0, high=2*np.pi, size=n_samples)
-        phi1s = np.random.uniform(low=0, high=2*np.pi, size=n_samples)
-        theta0s = np.random.uniform(
+        phi0 = np.random.uniform(low=0, high=2*np.pi, size=n_samples)
+        theta0 = np.random.uniform(
             low=offset, high=np.pi-offset, size=n_samples)
 
         print(f"GENERATING DATASET OF SIZE {n_samples}...")
         action = Action(a, b, mu, mode=mode, cs=cs)
-        Gs = action(phi0s, phi1s)
+        _, phi2, G = action(phi0, theta0)
 
-        phis = np.vstack((phi0s, phi1s)).T
+        phis = np.vstack((phi0, phi2)).T
 
-        print(f"SAVING DATASET TO {filename}...")
-        dataset = np.vstack((phi0s, phi1s, Gs)).T
+        # print(f"SAVING DATASET TO {filename}...")
+        # dataset = np.vstack((phi0, phi2, Gs)).T
 
-        np.save(filename, dataset)
+        # np.save(filename, dataset)

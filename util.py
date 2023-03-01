@@ -134,31 +134,14 @@ def batch_jacobian(f, input):
 
     return jac
 
-# use sympy to calculate the intersection of two ellipses
-
-
-def get_intersection(a, b, m, n):
-    import sympy as sp
-
-    x, y = sp.symbols('x y')
-
-    f1 = (x**2/a**2 + y**2/b**2 - 1)
-    f2 = (x**2/m**2 + y**2/n**2 - 1)
-
-    sol = sp.solve([f1, f2], [x, y])
-
-    return sol
-
-
 # use sympy to calculate the area enclosed by two ellipses
-def area_overlap(a, b, x0, y0, mu):
+def area_overlap(a, b, center, mu):
     """Returns the area enclosed by an ellipse and a circle
 
     Args:
         a (int): length of first semi axis
         b (int): length of second semi axis
-        x0 (float): x coordinate of circle center
-        y0 (float): y coordinate of circle center
+        center (np.array of shape 2): center of circle
         mu (float): radius of circle
 
     Returns:
@@ -168,7 +151,7 @@ def area_overlap(a, b, x0, y0, mu):
     x, y = sp.symbols('x y', real=True)
 
     ellipse = (x**2/a**2 + y**2/b**2 - 1)
-    circle = ((x-x0)**2 + (y-y0)**2 - mu**2)
+    circle = ((x-center[0])**2 + (y-center[1])**2 - mu**2)
 
     sol = sp.solve([ellipse, circle], [x, y])
 
@@ -176,14 +159,12 @@ def area_overlap(a, b, x0, y0, mu):
 
     def area_difference(xi, xf):
         aue = sp.integrate(b*sp.sqrt(1 - (x**2/a**2)), (x, xi, xf))
-        auc = sp.integrate(-sp.sqrt(mu**2 - (x-x0)**2) + y0, (x, xi, xf))
+        auc = sp.integrate(-sp.sqrt(mu**2 - (x-center[0])**2) + center[1], (x, xi, xf))
         return aue - auc
 
     res = area_difference(xi, xf)
 
     return res
-
-# function that checks if a point p is on the left of a vector v
 
 
 def is_left_of(v, p):
@@ -198,3 +179,26 @@ def is_left_of(v, p):
     """
 
     return np.cross(v, p) < 0
+
+
+def solve_polynomial(a, b, c, d, e):
+    """Solve a fourth order polynomial equation
+
+    Args:
+        a (float): coefficient of x^4
+        b (float): coefficient of x^3
+        c (float): coefficient of x^2
+        d (float): coefficient of x^1
+        e (float): coefficient of x^0
+
+    Returns:
+        x (np.array of shape (4)): roots of the equation
+    """
+
+    # find roots
+    roots = np.roots(np.array([a, b, c, d, e]))
+
+    # extract the real solutions
+    roots = np.real(roots[np.isreal(roots)])
+
+    return roots

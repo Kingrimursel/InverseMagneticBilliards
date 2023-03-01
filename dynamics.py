@@ -11,6 +11,7 @@ from util import (get_initial_theta,
                   update_slider_range,
                   get_chi,
                   rotate_vector,
+                  area_overlap,
                   angle_between,
                   pair,
                   is_left_of)
@@ -286,139 +287,108 @@ class Orbit:
             np.array: The coordinates corresponding to the orbit
         """
 
-        if self.cs == "Birkhoff":
-            coordinates = [[self.s, self.u]]
-        elif self.cs == "Custom":
-            coordinates = [[self.phi, self.theta]]
+        coordinates = [self.p]
+        centers = []
 
         n_step = 0
         while N > 0:
             if self.mode == "classic":
                 # get time of collision with boundary
-                t = self.table.get_collision(self.p, self.v)
+                p0 = self.p
+                t = self.table.get_collision(p0, self.v)
 
                 # get collision point
-                self.p = self.p + t*self.v
+                p2 = self.p + t*self.v
+
+                coordinates.append(p2)
 
                 # increase step counter by one
                 N -= 1
 
-            elif self.mode == "birkhoff":
+            elif self.mode == "inversemagnetic":
                 # corresponds to a chord
                 if n_step % 2 == 0:
                     # get time of collision, the parameter of the straight line
+                    p0 = coordinates[-1]
 
                     # FIXME: i think it might be choosing the wrong solution here sometimes i think. To make sure,
                     # just choose the one further away from self.p?!
-                    t = self.table.get_collision(self.p, self.v)
+                    t = self.table.get_collision(p0, self.v)
 
                     # get collision point
-                    self.p = self.p + t*self.v
+                    p1 = p0 + t*self.v
+
+                    coordinates.append(p1)
 
                     # do not increase the step counter because this is only a temporary step
                     N -= 0
 
                 # corresponds to a magnetic arc
                 else:
+                    p0 = self.table.boundary(coordinates[-2])
+                    p1 = self.table.boundary(coordinates[-1])
 
-                    p0 = self.table.boundary(coordinates[-2][0])
-                    p1 = self.table.boundary(coordinates[-1][0])
+                    # get larmor center
+                    center = self.get_larmor_center(p0, p1)
 
-                    # two possible larmor centers
-                    mu1, mu2 = self.get_larmor_intersections(p0, p1)
+                    centers.append(center)
 
-                    mu = mu1 if is_left_of(p1-p0, mu1) else mu2
+                    p2 = self.table.get_reenter_point(center, self.mu, p1)
 
+                    phi2 = self.table.get_polar_angle(p2)
 
-                    # function that returns the intersection of an ellipse with semi axes a and b with a circle of radius mu and center (x0, y0)
-                    
-
-                    def get_intersection(a, b, mu):
-                        # get the intersection of the ellipse with the circle of radius mu
-                        # the intersection is given by the solution of a quadratic equation
-                        # the solution is given by the following formula
-                        # x = (a^2 - b^2 + mu^2)/(2*a)
-                        # y = sqrt(mu^2 - x^2)
-
-                        print(a, b, mu)
-
-                        # get the x coordinate
-                        x = (a**2 - b**2 + mu**2)/(2*a)
-
-                        # get the y coordinate
-                        y = np.sqrt(mu**2 - x**2)
-
-                        return np.array([x, y])
-
-                    print(get_intersection(self.table.a, self.table.b, mu))
-
-                    # the direction of the l_2 chord
-                    v_chord = rotate_vector(self.v, self.chi)
-
-                    # intersection of l_2 with the boundary
-                    t = self.table.get_collision(self.p, v_chord)
-
-                    # move base point along l_2 chord
-                    self.p = self.p + t*v_chord
-
-                    # rotate the velocity by psi=2*chi
-                    # self.v = rotate_vector(self.v, 2*self.chi)
+                    coordinates.append(phi2)
 
                     # increase step counter by one
                     N -= 1
 
             # ellipse parameter corresponding to collision point
-            phi2 = self.table.get_polar_angle(self.p)
 
             # caculate arclength
-            s2 = self.table.get_arclength(phi2)
+            # s2 = self.table.get_arclength(phi2)
+
+            # TODO: calculate v2 from tangent to circle
+            # v2 = None
+            # theta2 = None
+            # u2 = None
 
             # update runtime variables
-            theta2 = angle_between(self.v, self.table.tangent(phi2))
-            u2 = - np.cos(theta2)
+            # theta2 = angle_between(self.v, self.table.tangent(phi2))
+            # u2 = - np.cos(theta2)
 
-            self.v = rotate_vector(self.table.tangent(phi2), theta2)
-            self.s = s2
-            self.u = u2
-            self.phi = phi2
+            # self.v = rotate_vector(self.table.tangent(phi2), theta2)
+            # self.v = v2
 
-            if self.cs == "Birkhoff":
-                coordinates.append([s2, u2])
-            elif self.cs == "Custom":
-                coordinates.append([phi2, theta2])
+            # self.p = p2
+            # self.s = s2
+            # self.u = u2
+            # self.phi = phi2
 
             n_step += 1
 
         coordinates = np.stack(coordinates)
 
-        return coordinates
+        if self.mode == "classic":
+            return coordinates
+        elif self.mode == "inversemagnetic":
+            return coordinates, centers
+        else:
+            return
 
-    def get_larmor_intersections(self, p0, p1):
+    def get_larmor_centers(self, p0, p1):
         x0 = p0[0]
         y0 = p0[1]
         x1 = p1[0]
         y1 = p1[1]
 
-        # mu1x = (x0**2*x1 - 2*x0*x1**2 + x1**3 + x1*(y0 - y1)**2 - np.sqrt(self.mu**2*(x0**2 - 2 *
-        #        x0*x1 + x1**2 + (y0 - y1)**2)*(y0 - y1)**2))/(x0**2 - 2*x0*x1 + x1**2 + (y0 - y1)**2)
-
         mu1x = (x0**2*x1 - 2*x0*x1**2 + x1**3 + x1*(y0 - y1)**2 - np.sqrt(self.mu**2*(y0 - y1)
                 ** 2*(x0**2 - 2*x0*x1 + x1**2 + (y0 - y1)**2)))/(x0**2 - 2*x0*x1 + x1**2 + (y0 - y1)**2)
-
-        # mu1y = (-x1**np.sqrt(self.mu**2 * (x0**2 - 2 * x0 * x1 + x1**2 + (y0 - y1)**2) * (y0 - y1)**2) + x0**2 * (y0 - y1) * y1 + x1**2 * (y0 - y1) * y1 + (y0 - y1)**3 * y1 + x0 *
-        #        (np.sqrt(self.mu**2 * (x0**2 - 2 * x0 * x1 + x1**2 + (y0 - y1)**2) * (y0 - y1)**2) + 2 * x1 * y1*(-y0 + y1)))/((x0**2 - 2 * x0 * x1 + x1**2 + (y0 - y1)**2) * (y0 - y1))
 
         mu1y = (x0**2*y1*(y0 - y1) + x0*(2*x1*y1*(-y0 + y1) + np.sqrt(self.mu**2*(y0 - y1)**2*(x0**2 - 2*x0*x1 + x1**2 + (y0 - y1)**2))) + x1**2*y1*(y0 - y1) -
                 x1*np.sqrt(self.mu**2*(y0 - y1)**2*(x0**2 - 2*x0*x1 + x1**2 + (y0 - y1)**2)) + y1*(y0 - y1)**3)/((y0 - y1)*(x0**2 - 2*x0*x1 + x1**2 + (y0 - y1)**2))
 
-        # mu2x = (x0**2 * x1 - 2 * x0 * x1**2 + x1**3 + x1 * (y0 - y1)**2 + np.sqrt(self.mu**2 * (x0**2 - 2 *
-        #        x0 * x1 + x1**2 + (y0 - y1)**2) * (y0 - y1)**2))/(x0**2 - 2 * x0 * x1 + x1**2 + (y0 - y1)**2)
-
         mu2x = (x0**2*x1 - 2*x0*x1**2 + x1**3 + x1*(y0 - y1)**2 + np.sqrt(self.mu**2*(y0 - y1)
                 ** 2*(x0**2 - 2*x0*x1 + x1**2 + (y0 - y1)**2)))/(x0**2 - 2*x0*x1 + x1**2 + (y0 - y1)**2)
-
-        # mu2y = (x1 * np.sqrt(self.mu**2 * (x0**2 - 2 * x0 * x1 + x1**2 + (y0 - y1)**2)*(y0 - y1)**2) + x0**2 * (y0 - y1) * y1 + x1**2 * (y0 - y1) * y1 + (y0 - y1)**3 * y1 - x0 * (
-        #    np.sqrt(self.mu**2 * (x0**2 - 2 * x0 * x1 + x1**2 + (y0 - y1)**2) * (y0 - y1)**2) + 2 * x1 * (y0 - y1) * y1))/((x0**2 - 2 * x0 * x1 + x1**2 + (y0 - y1)**2) * (y0 - y1))
 
         mu2y = (x0**2*y1*(y0 - y1) - x0*(2*x1*y1*(y0 - y1) + np.sqrt(self.mu**2*(y0 - y1)**2*(x0**2 - 2*x0*x1 + x1**2 + (y0 - y1)**2))) + x1**2*y1*(y0 - y1) +
                 x1*np.sqrt(self.mu**2*(y0 - y1)**2*(x0**2 - 2*x0*x1 + x1**2 + (y0 - y1)**2)) + y1*(y0 - y1)**3)/((y0 - y1)*(x0**2 - 2*x0*x1 + x1**2 + (y0 - y1)**2))
@@ -427,6 +397,13 @@ class Orbit:
         mu2 = [mu2x, mu2y]
 
         return mu1, mu2
+
+    def get_larmor_center(self, p0, p1):
+        center1, center2 = self.get_larmor_centers(p0, p1)
+
+        center = center1 if is_left_of(p1-p0, center1) else center2
+
+        return center
 
     def plot(self, img_path=None):
         fig, ax = plt.subplots()
@@ -466,16 +443,25 @@ class Action:
 
         self.table = Table(a=a, b=b)
 
-    def __call__(self, phi0, phi1):
-        # TODO: here, work also with theta0 for the classic case
-        if self.mode == "classic":
-            G = np.linalg.norm(self.table.boundary(
-                phi0) - self.table.boundary(phi1), axis=0)
+    def __call__(self, phi0s, theta0):
+        if self.mode == "classic" and False:
+            pass
+            # p0 = self.table.boundary(phi0).T
+            # v0 = rotate_vector(p0, theta0)
+            # t = self.table.get_collision(p0, v0)
+
+            # get collision point
+            # p2 = p0 + t*v0
+
+            # phi2 = self.table.get_polar_angle(p2)
+
+            # G = np.linalg.norm((p0 - p2), axis=1)
         else:
             orbit = Orbit(self.a, self.b, self.mu, frequency=(
                 1, 1), mode=self.mode, **self.kwargs)
 
-            G = []
+            Gs = []
+            phi2s = []
 
             # normally I want to generate phi0 and phi1 randomly because those are the independant
             # varables of the action. However, it is hard to find the circle's center this way.
@@ -483,16 +469,24 @@ class Action:
             # function. Also we can still calculate the phi1s this way. I don't know the distribution though,
             # but that should be fine.
 
-            for phi, theta in zip(phi0, phi1):
+            for phi, theta in zip(phi0s, theta0):
                 phi = 0.
-                theta = np.pi/4
+                theta = np.pi/2
                 orbit.update(phi, theta)
-                orbit.step(N=1)
-                exit(0)
 
-            G = np.array(G)
+                if self.mode == "classic":
+                    coordinates = orbit.step(N=1)
+                    G = np.linalg.norm(coordinates[0] - coordinates[1])
+                    Gs.append(G)
+                elif self.mode == "inversemagnetic":
+                    coordinates, centers = orbit.step(N=1)
+                    test = area_overlap(self.a, self.b, centers[0], self.mu)
+                    print(test)
 
-        return G
+                phi2 = self.table.get_polar_angle(coordinates[1])
+                phi2s.append(phi2)
+
+        return phi0s, phi2s, Gs
 
 
 def periodic_orbits(a, b, mu):
