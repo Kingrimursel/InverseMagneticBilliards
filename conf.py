@@ -26,11 +26,15 @@ def get_least_busy_gpu(verbose=True):
     return idx
 
 
-# determine least busy device
-least_busy_device = get_least_busy_gpu(verbose=True)
+# ńvidia-smi might not be availible
+try:
+    # determine least busy device
+    least_busy_device = get_least_busy_gpu(verbose=True)
+    device = torch.device(
+        f"cuda:{least_busy_device}" if torch.cuda.is_available() else "cpu")
+except FileNotFoundError:
+    device = "cpu"
 
-device = torch.device(
-    f"cuda:{least_busy_device}" if torch.cuda.is_available() else "cpu")
 
 
 BASEDIR = os.path.dirname(__file__)

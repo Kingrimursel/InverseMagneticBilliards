@@ -36,6 +36,24 @@ class Table:
         else:
             return np.array([-self.a*np.sin(phi), self.b*np.cos(phi)])
 
+    def get_polar_angle(self, p):
+        """Get the elliptical polar angle of a point p on the tables boundary.
+        CAUTION: cos is not injective on [0, 2*np.pi]
+
+        Args:
+            p (np.array of shape (2)): the point
+
+        Returns:
+            phi (float): the polar angle
+        """
+
+        if p[1] >= 0:
+            phi = np.arccos(p[0]/self.a)
+        else:
+            phi = 2*np.pi - np.arccos(p[0]/self.a)
+
+        return phi
+
     def get_patch(self, fill=None):
         return mpl.patches.Ellipse((0, 0), 2*self.a, 2*self.b, fill=fill, alpha=1, facecolor="white", edgecolor="black")
 

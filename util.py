@@ -1,10 +1,7 @@
-import os
 import torch
-import subprocess
-from io import BytesIO
 
 import numpy as np
-import pandas as pd
+import sympy as sp
 
 
 from functorch import jacfwd, jacrev, vmap, hessian
@@ -136,3 +133,68 @@ def batch_jacobian(f, input):
             jac = vmap(jacrev(f), in_dims=(0,))(input)
 
     return jac
+
+# use sympy to calculate the intersection of two ellipses
+
+
+def get_intersection(a, b, m, n):
+    import sympy as sp
+
+    x, y = sp.symbols('x y')
+
+    f1 = (x**2/a**2 + y**2/b**2 - 1)
+    f2 = (x**2/m**2 + y**2/n**2 - 1)
+
+    sol = sp.solve([f1, f2], [x, y])
+
+    return sol
+
+
+# use sympy to calculate the area enclosed by two ellipses
+def area_overlap(a, b, x0, y0, mu):
+    """Returns the area enclosed by an ellipse and a circle
+
+    Args:
+        a (int): length of first semi axis
+        b (int): length of second semi axis
+        x0 (float): x coordinate of circle center
+        y0 (float): y coordinate of circle center
+        mu (float): radius of circle
+
+    Returns:
+        float: area enclosed by ellipse and circle
+    """
+
+    x, y = sp.symbols('x y', real=True)
+
+    ellipse = (x**2/a**2 + y**2/b**2 - 1)
+    circle = ((x-x0)**2 + (y-y0)**2 - mu**2)
+
+    sol = sp.solve([ellipse, circle], [x, y])
+
+    xi, _, xf, _ = *sol[0], *sol[1]
+
+    def area_difference(xi, xf):
+        aue = sp.integrate(b*sp.sqrt(1 - (x**2/a**2)), (x, xi, xf))
+        auc = sp.integrate(-sp.sqrt(mu**2 - (x-x0)**2) + y0, (x, xi, xf))
+        return aue - auc
+
+    res = area_difference(xi, xf)
+
+    return res
+
+# function that checks if a point p is on the left of a vector v
+
+
+def is_left_of(v, p):
+    """ Function that checks if a point p is on the levt of a vector v
+
+    Args:
+        v (np.array of shape (2)): vector
+        p (np.array of shape (2)): point
+
+    Returns:
+        bool: True if p is on the left of v, False otherwise
+    """
+
+    return np.cross(v, p) < 0

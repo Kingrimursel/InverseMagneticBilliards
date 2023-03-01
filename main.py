@@ -5,17 +5,17 @@ from data.generate import generate_dataset
 
 if __name__ == "__main__":
     # table properties
-    a = 2
+    a = 1
     b = 1
 
     # magnetic properties
     mu = 1/5
 
     cs = "Custom"
-    mode = "classic"
+    mode = "birkhoff"
     type = "GeneratingFunction"
 
-    exec = "minimize"
+    exec = "generate"
 
     if exec == "generate":
         generate_dataset(a,
@@ -23,9 +23,9 @@ if __name__ == "__main__":
                          mu,
                          100000,
                          "train100k.npy",
-                         cs="Custom",
-                         mode="classic",
-                         type="GeneratingFunction")
+                         cs=cs,
+                         mode=mode,
+                         type=type)
     elif exec == "train":
         training_procedure(num_epochs=100,
                            type=type,
@@ -42,3 +42,9 @@ if __name__ == "__main__":
             dir="GeneratingFunction/Custom/2023-02-24",  # 23
             type=type,
             cs=cs)
+    else:
+        from util import area_overlap
+
+        test = area_overlap(2, 1, 0, 1, 0.2)
+
+        print(test)

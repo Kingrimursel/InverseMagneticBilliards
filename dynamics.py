@@ -6,7 +6,14 @@ from matplotlib.offsetbox import AnchoredText
 from matplotlib.widgets import Slider
 
 from setting import Table
-from util import get_initial_theta, get_legend, update_slider_range, get_chi, rotate_vector, angle_between, pair
+from util import (get_initial_theta,
+                  get_legend,
+                  update_slider_range,
+                  get_chi,
+                  rotate_vector,
+                  angle_between,
+                  pair,
+                  is_left_of)
 
 
 class Trajectory:
@@ -179,13 +186,26 @@ class Trajectory:
 
 
 class Orbit:
-    def __init__(self, a, b, frequency=(), mode="classic", init="random", *args, **kargs):
+    def __init__(self, a, b, mu, frequency=(), mode="classic", init="random", cs="Birkhoff", *args, **kargs):
+        """An inverse magnetic orbit
+
+        Args:
+            a (int): first semi axis of the ellipse
+            b (int): second semi axis of the ellipse
+            frequency (tuple, optional): frequency of periodic orbit considered. Defaults to ().
+            mode (str, optional): classic of birkhoff billiards. Defaults to "classic".
+            init (str, optional): how to initialize the orbit. Defaults to "random".
+            cs (str, optional): coordinate system, whether classic or birkhoff. Defaults to "Birkhoff".
+        """
+
         self.mode = mode
+        self.cs = cs
+        self.mu = mu
 
         if len(frequency) > 0:
             self.m, self.n = frequency
         else:
-            self.m, self.n = (0, 0)
+            self.m, self.n = 0, 0
 
         self.table = Table(a=a, b=b)
 
@@ -193,6 +213,7 @@ class Orbit:
         self.phi = []
         self.u = []
 
+        # initialize the orbit
         if init == "random":
             offset = 1e-7
             self.phi = torch.tensor(np.random.uniform(
@@ -201,7 +222,6 @@ class Orbit:
             indices = 1 + \
                 torch.remainder(((self.m)*torch.arange(self.n)), self.n)
 
-            # indices = torch.arange(n)
             indices[indices == 0] = self.n
 
             self.phi = indices/self.n*2*torch.pi
@@ -211,20 +231,23 @@ class Orbit:
 
         self.phi0 = self.phi.clone()
 
+        self.p = self.points()
+
+    def __len__(self):
+        return len(self.phi)
+
     def set_u(self, u):
         self.u = u
 
     def set_phi(self, phi):
         self.phi = phi
+        self.p = self.points()
 
     def get_u(self):
         phi = self.get_phi()
         self.u = self.points(x=phi) - self.points(x=torch.roll(phi, -1))
 
         return self.u
-
-    def __len__(self):
-        return len(self.phi)
 
     def get_s(self):
         return self.s
@@ -238,16 +261,172 @@ class Orbit:
         else:
             return self.table.boundary(x)
 
-    def pairs(self, x, periodic=True):
-        pairs = pair(x, periodic=True)
-
-        return pairs
-
     def pair_phi(self, periodic=True):
-        return self.pairs(self.phi, periodic=periodic)
+        return pair(self.phi, periodic=periodic)
 
     def pair_s(self, periodic=True):
-        return self.pairs(self.s, periodic=periodic)
+        return pair(self.s, periodic=periodic)
+
+    def update(self, phi0, theta0):
+        self.phi = phi0
+        self.theta = theta0
+
+        self.v = rotate_vector(self.table.tangent(phi0), theta0)
+        self.p = self.table.boundary(phi0)
+        self.s = self.table.get_arclength(phi0)
+        self.u = -np.cos(theta0)
+
+    def step(self, N=1):
+        """Take N steps of the orbit
+
+        Args:
+            N (int, optional): Number of steps to take. Defaults to 1.
+
+        Returns:
+            np.array: The coordinates corresponding to the orbit
+        """
+
+        if self.cs == "Birkhoff":
+            coordinates = [[self.s, self.u]]
+        elif self.cs == "Custom":
+            coordinates = [[self.phi, self.theta]]
+
+        n_step = 0
+        while N > 0:
+            if self.mode == "classic":
+                # get time of collision with boundary
+                t = self.table.get_collision(self.p, self.v)
+
+                # get collision point
+                self.p = self.p + t*self.v
+
+                # increase step counter by one
+                N -= 1
+
+            elif self.mode == "birkhoff":
+                # corresponds to a chord
+                if n_step % 2 == 0:
+                    # get time of collision, the parameter of the straight line
+
+                    # FIXME: i think it might be choosing the wrong solution here sometimes i think. To make sure,
+                    # just choose the one further away from self.p?!
+                    t = self.table.get_collision(self.p, self.v)
+
+                    # get collision point
+                    self.p = self.p + t*self.v
+
+                    # do not increase the step counter because this is only a temporary step
+                    N -= 0
+
+                # corresponds to a magnetic arc
+                else:
+
+                    p0 = self.table.boundary(coordinates[-2][0])
+                    p1 = self.table.boundary(coordinates[-1][0])
+
+                    # two possible larmor centers
+                    mu1, mu2 = self.get_larmor_intersections(p0, p1)
+
+                    mu = mu1 if is_left_of(p1-p0, mu1) else mu2
+
+
+                    # function that returns the intersection of an ellipse with semi axes a and b with a circle of radius mu and center (x0, y0)
+                    
+
+                    def get_intersection(a, b, mu):
+                        # get the intersection of the ellipse with the circle of radius mu
+                        # the intersection is given by the solution of a quadratic equation
+                        # the solution is given by the following formula
+                        # x = (a^2 - b^2 + mu^2)/(2*a)
+                        # y = sqrt(mu^2 - x^2)
+
+                        print(a, b, mu)
+
+                        # get the x coordinate
+                        x = (a**2 - b**2 + mu**2)/(2*a)
+
+                        # get the y coordinate
+                        y = np.sqrt(mu**2 - x**2)
+
+                        return np.array([x, y])
+
+                    print(get_intersection(self.table.a, self.table.b, mu))
+
+                    # the direction of the l_2 chord
+                    v_chord = rotate_vector(self.v, self.chi)
+
+                    # intersection of l_2 with the boundary
+                    t = self.table.get_collision(self.p, v_chord)
+
+                    # move base point along l_2 chord
+                    self.p = self.p + t*v_chord
+
+                    # rotate the velocity by psi=2*chi
+                    # self.v = rotate_vector(self.v, 2*self.chi)
+
+                    # increase step counter by one
+                    N -= 1
+
+            # ellipse parameter corresponding to collision point
+            phi2 = self.table.get_polar_angle(self.p)
+
+            # caculate arclength
+            s2 = self.table.get_arclength(phi2)
+
+            # update runtime variables
+            theta2 = angle_between(self.v, self.table.tangent(phi2))
+            u2 = - np.cos(theta2)
+
+            self.v = rotate_vector(self.table.tangent(phi2), theta2)
+            self.s = s2
+            self.u = u2
+            self.phi = phi2
+
+            if self.cs == "Birkhoff":
+                coordinates.append([s2, u2])
+            elif self.cs == "Custom":
+                coordinates.append([phi2, theta2])
+
+            n_step += 1
+
+        coordinates = np.stack(coordinates)
+
+        return coordinates
+
+    def get_larmor_intersections(self, p0, p1):
+        x0 = p0[0]
+        y0 = p0[1]
+        x1 = p1[0]
+        y1 = p1[1]
+
+        # mu1x = (x0**2*x1 - 2*x0*x1**2 + x1**3 + x1*(y0 - y1)**2 - np.sqrt(self.mu**2*(x0**2 - 2 *
+        #        x0*x1 + x1**2 + (y0 - y1)**2)*(y0 - y1)**2))/(x0**2 - 2*x0*x1 + x1**2 + (y0 - y1)**2)
+
+        mu1x = (x0**2*x1 - 2*x0*x1**2 + x1**3 + x1*(y0 - y1)**2 - np.sqrt(self.mu**2*(y0 - y1)
+                ** 2*(x0**2 - 2*x0*x1 + x1**2 + (y0 - y1)**2)))/(x0**2 - 2*x0*x1 + x1**2 + (y0 - y1)**2)
+
+        # mu1y = (-x1**np.sqrt(self.mu**2 * (x0**2 - 2 * x0 * x1 + x1**2 + (y0 - y1)**2) * (y0 - y1)**2) + x0**2 * (y0 - y1) * y1 + x1**2 * (y0 - y1) * y1 + (y0 - y1)**3 * y1 + x0 *
+        #        (np.sqrt(self.mu**2 * (x0**2 - 2 * x0 * x1 + x1**2 + (y0 - y1)**2) * (y0 - y1)**2) + 2 * x1 * y1*(-y0 + y1)))/((x0**2 - 2 * x0 * x1 + x1**2 + (y0 - y1)**2) * (y0 - y1))
+
+        mu1y = (x0**2*y1*(y0 - y1) + x0*(2*x1*y1*(-y0 + y1) + np.sqrt(self.mu**2*(y0 - y1)**2*(x0**2 - 2*x0*x1 + x1**2 + (y0 - y1)**2))) + x1**2*y1*(y0 - y1) -
+                x1*np.sqrt(self.mu**2*(y0 - y1)**2*(x0**2 - 2*x0*x1 + x1**2 + (y0 - y1)**2)) + y1*(y0 - y1)**3)/((y0 - y1)*(x0**2 - 2*x0*x1 + x1**2 + (y0 - y1)**2))
+
+        # mu2x = (x0**2 * x1 - 2 * x0 * x1**2 + x1**3 + x1 * (y0 - y1)**2 + np.sqrt(self.mu**2 * (x0**2 - 2 *
+        #        x0 * x1 + x1**2 + (y0 - y1)**2) * (y0 - y1)**2))/(x0**2 - 2 * x0 * x1 + x1**2 + (y0 - y1)**2)
+
+        mu2x = (x0**2*x1 - 2*x0*x1**2 + x1**3 + x1*(y0 - y1)**2 + np.sqrt(self.mu**2*(y0 - y1)
+                ** 2*(x0**2 - 2*x0*x1 + x1**2 + (y0 - y1)**2)))/(x0**2 - 2*x0*x1 + x1**2 + (y0 - y1)**2)
+
+        # mu2y = (x1 * np.sqrt(self.mu**2 * (x0**2 - 2 * x0 * x1 + x1**2 + (y0 - y1)**2)*(y0 - y1)**2) + x0**2 * (y0 - y1) * y1 + x1**2 * (y0 - y1) * y1 + (y0 - y1)**3 * y1 - x0 * (
+        #    np.sqrt(self.mu**2 * (x0**2 - 2 * x0 * x1 + x1**2 + (y0 - y1)**2) * (y0 - y1)**2) + 2 * x1 * (y0 - y1) * y1))/((x0**2 - 2 * x0 * x1 + x1**2 + (y0 - y1)**2) * (y0 - y1))
+
+        mu2y = (x0**2*y1*(y0 - y1) - x0*(2*x1*y1*(y0 - y1) + np.sqrt(self.mu**2*(y0 - y1)**2*(x0**2 - 2*x0*x1 + x1**2 + (y0 - y1)**2))) + x1**2*y1*(y0 - y1) +
+                x1*np.sqrt(self.mu**2*(y0 - y1)**2*(x0**2 - 2*x0*x1 + x1**2 + (y0 - y1)**2)) + y1*(y0 - y1)**3)/((y0 - y1)*(x0**2 - 2*x0*x1 + x1**2 + (y0 - y1)**2))
+
+        mu1 = [mu1x, mu1y]
+        mu2 = [mu2x, mu2y]
+
+        return mu1, mu2
 
     def plot(self, img_path=None):
         fig, ax = plt.subplots()
@@ -278,16 +457,40 @@ class Orbit:
 
 
 class Action:
-    def __init__(self, a, b, mode="classic", *args, **kwargs):
+    def __init__(self, a, b, mu, mode="classic", *args, **kwargs):
         self.mode = mode
+        self.a = a
+        self.b = b
+        self.mu = mu
+        self.kwargs = kwargs
+
         self.table = Table(a=a, b=b)
 
     def __call__(self, phi0, phi1):
+        # TODO: here, work also with theta0 for the classic case
         if self.mode == "classic":
             G = np.linalg.norm(self.table.boundary(
                 phi0) - self.table.boundary(phi1), axis=0)
         else:
-            G = None
+            orbit = Orbit(self.a, self.b, self.mu, frequency=(
+                1, 1), mode=self.mode, **self.kwargs)
+
+            G = []
+
+            # normally I want to generate phi0 and phi1 randomly because those are the independant
+            # varables of the action. However, it is hard to find the circle's center this way.
+            # Instead, for now I generate phi0s and theta0s. This way it is way easier to evaluate the generating
+            # function. Also we can still calculate the phi1s this way. I don't know the distribution though,
+            # but that should be fine.
+
+            for phi, theta in zip(phi0, phi1):
+                phi = 0.
+                theta = np.pi/4
+                orbit.update(phi, theta)
+                orbit.step(N=1)
+                exit(0)
+
+            G = np.array(G)
 
         return G
 
