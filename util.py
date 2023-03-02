@@ -157,29 +157,81 @@ def area_overlap(a, b, mu, center):
 
     sol = sp.solve([ellipse, circle], [x_symb, y_symb])
 
-    xi, _, xf, _ = *sol[0], *sol[1]
+    xi, yi, xf, yf = *sol[0], *sol[1]
 
     xi = np.array(xi).astype(np.float64)
+    yi = np.array(yi).astype(np.float64)
     xf = np.array(xf).astype(np.float64)
+    yf = np.array(yf).astype(np.float64)
 
-    def int_ellipse(x):
-        return b*(x*np.sqrt(1 - x**2/a**2)/2 - np.log(-x*np.sqrt(-1j/a**2) + np.sqrt(1 - x**2/a**2))/(2*np.sqrt(-1j/a**2)))
+    x0 = center[0]
+    y0 = center[1]
 
-    def int_circ(x):
-        return -1j*mu**2*np.log(-1j*x + 1j*center[0] + np.sqrt(mu**2 - (x - center[0])**2))/2 + x*center[1] - x*np.sqrt(mu**2 - (x - center[0])**2)/2 + center[0]*np.sqrt(mu**2 - (x - center[0])**2)/2
+    def aue(xi, xf):
+        integral = 1/(2*a)*b*(xf*np.sqrt(a**2 - xf**2) - xi*np.sqrt(a**2 - xi**2) + 1j*a **
+                              2*(np.log(-1j*xf + np.sqrt(a**2 - xf**2)) - np.log(-1j*xi + np.sqrt(a**2 - xi**2))))
+
+        return np.real(integral)
+
+    def auc(xi, xf):
+        """Area under ellipse, between the x values xi and xf
+
+        Args:
+            xi (float): first x value
+            xf (float): second x value
+
+        Returns:
+            float: area under ellipse
+        """
+        integral = 1j/2*mu**2*(np.log(1j*(x0 - xi) + abs(y0 - yi)) - np.log(1j*(x0 - xf) + abs(
+            y0 - yf))) + 1/2*((x0 - xf)*abs(y0 - yf) + (xi-x0)*abs(y0 - yi)) + y0*(xf - xi)
+
+        return np.real(integral)
+
+    # function that uses shapely to calculate the area enclosed by an ellipse and a circle
+
+    from shapely.geometry import Point
+    from shapely import affinity
+    import matplotlib.pyplot as plt
+    def ellipse_circle_intersection_area(a, b, center, mu):
+        # Create Shapely geometry objects for the ellipse and circle
+        ellipse = affinity.scale(Point(0, 0).buffer(1), a, b)
+        circle = Point(*center).buffer(mu)
+
+        fig, ax = plt.subplots() 
+        ax.plot(*ellipse.exterior.xy)
+        ax.plot(*circle.exterior.xy)
+        ax.set_aspect("equal")
+        plt.show()
+
+        # Calculate the intersection between the two shapes
+        intersection = ellipse.intersection(circle)
+        
+        # If there is no intersection, return 0
+        if intersection.is_empty:
+            return 0
+        
+        # If the intersection is a point, return 0 (since a point has zero area)
+        if intersection.geom_type == 'Point':
+            return 0
+        
+        # If the intersection is a line, return 0 (since a line has zero area)
+        if intersection.geom_type == 'LineString':
+            return 0
+        
+        # If the intersection is a polygon, calculate its area and return it
+        if intersection.geom_type == 'Polygon':
+            return intersection.area
+
 
     def area_difference(xi, xf):
-        aue = int_ellipse(xf) - int_ellipse(xi)
-        auc = int_circ(xf) - int_circ(xi)
 
-        print(aue, auc)
+        # use shapely to calculate the area enclosed by an ellipse and a circle
+        print(ellipse_circle_intersection_area(a, b, center, mu))
 
-        # print(xi, xf, mu, center[0], center[1])
-        # auc = sp.integrate(-sp.sqrt(mu**2 -
-        #                   (x-center[0])**2) + center[1], (x, xi, xf))
-        return aue - auc
+        # return aue(xi, xf) - auc(xi, xf)
 
-    res = sp.N(area_difference(xi, xf))
+    res = area_difference(xi, xf)
 
     return res
 
