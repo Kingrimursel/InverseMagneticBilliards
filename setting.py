@@ -3,7 +3,7 @@ import numpy as np
 import matplotlib as mpl
 from scipy.special import ellipeinc
 
-from util import solve_polynomial
+from util import solve_polynomial, get_polar_angle
 
 
 class Table:
@@ -49,17 +49,7 @@ class Table:
             phi (float): the polar angle
         """
 
-        # phi = np.zeros(len(p))
-
-        # phi[p[:, 1] >= 0] = np.arccos(p[p[:, 1] >= 0, 0]/self.a)
-        # phi[p[:, 1] < 0] = 2*np.pi - np.arccos(p[p[:, 1] < 0, 0]/self.a)
-
-        if p[1] >= 0:
-            phi = np.arccos(p[0]/self.a)
-        else:
-            phi = 2*np.pi - np.arccos(p[0]/self.a)
-
-        return phi
+        return get_polar_angle(self.a, p)
 
     def get_patch(self, fill=None):
         return mpl.patches.Ellipse((0, 0), 2*self.a, 2*self.b, fill=fill, alpha=1, facecolor="white", edgecolor="black")

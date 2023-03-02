@@ -12,6 +12,7 @@ from util import (get_initial_theta,
                   get_chi,
                   rotate_vector,
                   area_overlap,
+                  intersection_parameters,
                   angle_between,
                   pair,
                   is_left_of)
@@ -330,6 +331,7 @@ class Orbit:
 
                     # get larmor center
                     center = self.get_larmor_center(p0, p1)
+
                     centers.append(center)
 
                     # get reenter point
@@ -429,7 +431,7 @@ class Action:
 
         for phi0, theta0 in zip(phi0s, theta0):
             phi0 = 0.
-            theta0 = np.pi/4
+            theta0 = np.pi/2
             orbit.update(phi0, theta0)
 
             if self.mode == "classic":
@@ -440,22 +442,22 @@ class Action:
                 coordinates, centers = orbit.step(N=1)
 
                 # ellipse parameters corresponding to intersection points
-                phi1 = self.table.get_polar_angle(coordinates[1])
                 phi2 = self.table.get_polar_angle(coordinates[2])
 
                 # Area inside the circular arc but outside of the billiard table
                 S = np.pi*self.mu**2 - area_overlap(self.a, self.b, self.mu, centers[0])
 
+                phii, phif = intersection_parameters(self.a, self.b, self.mu, centers[0])
+
                 # length of first chord
                 l1 = np.linalg.norm(coordinates[1] - coordinates[0], ord=2)
 
                 # length of circular arc outside of the billiard table
-                length_gamma = np.abs(self.mu * (phi2 - phi1))
+                length_gamma = np.abs(self.mu * (phif - phii))
 
                 # the action action
                 G = - l1 - length_gamma + S
                 print(l1, length_gamma, S, G)
-                exit(0)
 
             Gs.append(G)
             phi2s.append(phi2)
