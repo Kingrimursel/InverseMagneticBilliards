@@ -2,7 +2,8 @@ import torch
 
 import numpy as np
 import sympy as sp
-
+from shapely.geometry import Point
+from shapely import affinity
 
 from functorch import jacfwd, jacrev, vmap, hessian
 from scipy.optimize import root_scalar
@@ -137,6 +138,33 @@ def batch_jacobian(f, input):
 # use sympy to calculate the area enclosed by two ellipses
 
 
+def get_polar_angle(a,  p):
+    if p[1] >= 0:
+        phi = np.arccos(p[0]/a)
+    else:
+        phi = 2*np.pi - np.arccos(p[0]/a)
+
+    return phi
+
+
+def intersection_parameters(a, b, mu, center):
+    x_symb, y_symb = sp.symbols('x y', real=True)
+
+    ellipse = (x_symb**2/a**2 + y_symb**2/b**2 - 1)
+    circle = ((x_symb-center[0])**2 + (y_symb-center[1])**2 - mu**2)
+
+    sol = sp.solve([ellipse, circle], [x_symb, y_symb])
+    sol = np.array(sol).astype(np.float64)
+
+    #print(sol)
+    #print(np.array(center))
+
+    phii = get_polar_angle(1, 1/mu*(sol[0] - np.array(center)))
+    phif = get_polar_angle(1, 1/mu*(sol[1] - np.array(center)))
+
+    return phii, phif
+
+
 def area_overlap(a, b, mu, center):
     """Returns the area enclosed by an ellipse and a circle
 
@@ -150,38 +178,24 @@ def area_overlap(a, b, mu, center):
         float: area enclosed by ellipse and circle
     """
 
-    x_symb, y_symb = sp.symbols('x y', real=True)
 
-    ellipse = (x_symb**2/a**2 + y_symb**2/b**2 - 1)
-    circle = ((x_symb-center[0])**2 + (y_symb-center[1])**2 - mu**2)
+    # Create circle and ellipse objects
+    circle = Point(center).buffer(mu)
+    ellipse = affinity.scale(Point(0, 0).buffer(1), a, b)
 
-    sol = sp.solve([ellipse, circle], [x_symb, y_symb])
+    # Calculate intersection area using shapely
+    intersection = circle.intersection(ellipse)
 
-    xi, _, xf, _ = *sol[0], *sol[1]
+    from matplotlib import pyplot as plt
+    fig, ax = plt.subplots()
 
-    xi = np.array(xi).astype(np.float64)
-    xf = np.array(xf).astype(np.float64)
+    ax.plot(*ellipse.exterior.xy)
+    ax.plot(*circle.exterior.xy)
+    ax.axis("equal")
 
-    def int_ellipse(x):
-        return b*(x*np.sqrt(1 - x**2/a**2)/2 - np.log(-x*np.sqrt(-1j/a**2) + np.sqrt(1 - x**2/a**2))/(2*np.sqrt(-1j/a**2)))
+    plt.show()
 
-    def int_circ(x):
-        return -1j*mu**2*np.log(-1j*x + 1j*center[0] + np.sqrt(mu**2 - (x - center[0])**2))/2 + x*center[1] - x*np.sqrt(mu**2 - (x - center[0])**2)/2 + center[0]*np.sqrt(mu**2 - (x - center[0])**2)/2
-
-    def area_difference(xi, xf):
-        aue = int_ellipse(xf) - int_ellipse(xi)
-        auc = int_circ(xf) - int_circ(xi)
-
-        print(aue, auc)
-
-        # print(xi, xf, mu, center[0], center[1])
-        # auc = sp.integrate(-sp.sqrt(mu**2 -
-        #                   (x-center[0])**2) + center[1], (x, xi, xf))
-        return aue - auc
-
-    res = sp.N(area_difference(xi, xf))
-
-    return res
+    return intersection.area
 
 
 def is_left_of(v, p):

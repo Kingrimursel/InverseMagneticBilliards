@@ -42,11 +42,3 @@ if __name__ == "__main__":
             dir="GeneratingFunction/Custom/2023-02-24",  # 23
             type=type,
             cs=cs)
-    else:
-        from util import area_overlap, solve_polynomial
-
-        # test = area_overlap(2, 1, 0, 1, 0.2)
-        test2 = solve_polynomial(1, 1, 1, 1, -1)
-
-        # print(test)
-        print(test2)
