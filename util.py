@@ -135,7 +135,9 @@ def batch_jacobian(f, input):
     return jac
 
 # use sympy to calculate the area enclosed by two ellipses
-def area_overlap(a, b, center, mu):
+
+
+def area_overlap(a, b, mu, center):
     """Returns the area enclosed by an ellipse and a circle
 
     Args:
@@ -148,21 +150,36 @@ def area_overlap(a, b, center, mu):
         float: area enclosed by ellipse and circle
     """
 
-    x, y = sp.symbols('x y', real=True)
+    x_symb, y_symb = sp.symbols('x y', real=True)
 
-    ellipse = (x**2/a**2 + y**2/b**2 - 1)
-    circle = ((x-center[0])**2 + (y-center[1])**2 - mu**2)
+    ellipse = (x_symb**2/a**2 + y_symb**2/b**2 - 1)
+    circle = ((x_symb-center[0])**2 + (y_symb-center[1])**2 - mu**2)
 
-    sol = sp.solve([ellipse, circle], [x, y])
+    sol = sp.solve([ellipse, circle], [x_symb, y_symb])
 
     xi, _, xf, _ = *sol[0], *sol[1]
 
+    xi = np.array(xi).astype(np.float64)
+    xf = np.array(xf).astype(np.float64)
+
+    def int_ellipse(x):
+        return b*(x*np.sqrt(1 - x**2/a**2)/2 - np.log(-x*np.sqrt(-1j/a**2) + np.sqrt(1 - x**2/a**2))/(2*np.sqrt(-1j/a**2)))
+
+    def int_circ(x):
+        return -1j*mu**2*np.log(-1j*x + 1j*center[0] + np.sqrt(mu**2 - (x - center[0])**2))/2 + x*center[1] - x*np.sqrt(mu**2 - (x - center[0])**2)/2 + center[0]*np.sqrt(mu**2 - (x - center[0])**2)/2
+
     def area_difference(xi, xf):
-        aue = sp.integrate(b*sp.sqrt(1 - (x**2/a**2)), (x, xi, xf))
-        auc = sp.integrate(-sp.sqrt(mu**2 - (x-center[0])**2) + center[1], (x, xi, xf))
+        aue = int_ellipse(xf) - int_ellipse(xi)
+        auc = int_circ(xf) - int_circ(xi)
+
+        print(aue, auc)
+
+        # print(xi, xf, mu, center[0], center[1])
+        # auc = sp.integrate(-sp.sqrt(mu**2 -
+        #                   (x-center[0])**2) + center[1], (x, xi, xf))
         return aue - auc
 
-    res = area_difference(xi, xf)
+    res = sp.N(area_difference(xi, xf))
 
     return res
 

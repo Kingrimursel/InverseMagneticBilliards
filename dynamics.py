@@ -325,49 +325,26 @@ class Orbit:
 
                 # corresponds to a magnetic arc
                 else:
-                    p0 = self.table.boundary(coordinates[-2])
-                    p1 = self.table.boundary(coordinates[-1])
+                    p0 = coordinates[-2]
+                    p1 = coordinates[-1]
 
                     # get larmor center
                     center = self.get_larmor_center(p0, p1)
-
                     centers.append(center)
 
+                    # get reenter point
                     p2 = self.table.get_reenter_point(center, self.mu, p1)
-
-                    phi2 = self.table.get_polar_angle(p2)
-
-                    coordinates.append(phi2)
+                    coordinates.append(p2)
 
                     # increase step counter by one
                     N -= 1
 
-            # ellipse parameter corresponding to collision point
-
-            # caculate arclength
-            # s2 = self.table.get_arclength(phi2)
-
-            # TODO: calculate v2 from tangent to circle
-            # v2 = None
-            # theta2 = None
-            # u2 = None
-
-            # update runtime variables
-            # theta2 = angle_between(self.v, self.table.tangent(phi2))
-            # u2 = - np.cos(theta2)
-
-            # self.v = rotate_vector(self.table.tangent(phi2), theta2)
-            # self.v = v2
-
-            # self.p = p2
-            # self.s = s2
-            # self.u = u2
-            # self.phi = phi2
-
             n_step += 1
 
+        # stack coordinates
         coordinates = np.stack(coordinates)
 
+        # return coordinates in classical case and coordinates/centers in inverse magnetic case
         if self.mode == "classic":
             return coordinates
         elif self.mode == "inversemagnetic":
@@ -444,47 +421,44 @@ class Action:
         self.table = Table(a=a, b=b)
 
     def __call__(self, phi0s, theta0):
-        if self.mode == "classic" and False:
-            pass
-            # p0 = self.table.boundary(phi0).T
-            # v0 = rotate_vector(p0, theta0)
-            # t = self.table.get_collision(p0, v0)
+        orbit = Orbit(self.a, self.b, self.mu,
+                      frequency=(1, 1), mode=self.mode, **self.kwargs)
 
-            # get collision point
-            # p2 = p0 + t*v0
+        Gs = []
+        phi2s = []
 
-            # phi2 = self.table.get_polar_angle(p2)
+        for phi0, theta0 in zip(phi0s, theta0):
+            phi0 = 0.
+            theta0 = np.pi/4
+            orbit.update(phi0, theta0)
 
-            # G = np.linalg.norm((p0 - p2), axis=1)
-        else:
-            orbit = Orbit(self.a, self.b, self.mu, frequency=(
-                1, 1), mode=self.mode, **self.kwargs)
-
-            Gs = []
-            phi2s = []
-
-            # normally I want to generate phi0 and phi1 randomly because those are the independant
-            # varables of the action. However, it is hard to find the circle's center this way.
-            # Instead, for now I generate phi0s and theta0s. This way it is way easier to evaluate the generating
-            # function. Also we can still calculate the phi1s this way. I don't know the distribution though,
-            # but that should be fine.
-
-            for phi, theta in zip(phi0s, theta0):
-                phi = 0.
-                theta = np.pi/2
-                orbit.update(phi, theta)
-
-                if self.mode == "classic":
-                    coordinates = orbit.step(N=1)
-                    G = np.linalg.norm(coordinates[0] - coordinates[1])
-                    Gs.append(G)
-                elif self.mode == "inversemagnetic":
-                    coordinates, centers = orbit.step(N=1)
-                    test = area_overlap(self.a, self.b, centers[0], self.mu)
-                    print(test)
-
+            if self.mode == "classic":
+                coordinates = orbit.step(N=1)
+                G = np.linalg.norm(coordinates[0] - coordinates[1], ord=2)
                 phi2 = self.table.get_polar_angle(coordinates[1])
-                phi2s.append(phi2)
+            elif self.mode == "inversemagnetic":
+                coordinates, centers = orbit.step(N=1)
+
+                # ellipse parameters corresponding to intersection points
+                phi1 = self.table.get_polar_angle(coordinates[1])
+                phi2 = self.table.get_polar_angle(coordinates[2])
+
+                # Area inside the circular arc but outside of the billiard table
+                S = np.pi*self.mu**2 - area_overlap(self.a, self.b, self.mu, centers[0])
+
+                # length of first chord
+                l1 = np.linalg.norm(coordinates[1] - coordinates[0], ord=2)
+
+                # length of circular arc outside of the billiard table
+                length_gamma = np.abs(self.mu * (phi2 - phi1))
+
+                # the action action
+                G = - l1 - length_gamma + S
+                print(l1, length_gamma, S, G)
+                exit(0)
+
+            Gs.append(G)
+            phi2s.append(phi2)
 
         return phi0s, phi2s, Gs
 
