@@ -5,6 +5,8 @@ from matplotlib.collections import PatchCollection
 from matplotlib.offsetbox import AnchoredText
 from matplotlib.widgets import Slider
 
+from shapely.geometry import LineString
+
 from setting import Table
 from util import (get_initial_theta,
                   get_legend,
@@ -16,175 +18,6 @@ from util import (get_initial_theta,
                   angle_between,
                   pair,
                   is_left_of)
-
-
-class Trajectory:
-    def __init__(self, phi0, theta0, mu, a, b, mode="classic", cs="Birkhoff"):
-        """Trajectory of a charged particle
-
-        Args:
-            phi0 (_type_): _description_
-            theta0 (_type_): _description_
-            mu (_type_): _description_
-            a (_type_): _description_
-            b (_type_): _description_
-            mode (str, optional): If set to 'classic', normal billiards. Else, inverse magnetic billiards. Defaults to "classic".
-        """
-        # defining the billiards table
-        self.table = Table(a=a, b=b)
-        self.a = a
-        self.b = b
-
-        self.mode = mode
-        self.cs = cs
-
-        if self.mode != "classic":
-            chi = get_chi(theta0, mu)
-
-        # initial conditions
-        s0 = self.table.get_arclength(phi0)
-
-        t0 = self.table.tangent(phi0)
-        v0 = rotate_vector(t0, theta0)
-
-        self.phi0 = phi0
-        self.theta = theta0
-        self.s0 = s0
-
-        # constants
-        self.mu = mu
-        if self.mode != "classic":
-            self.theta = theta0
-            self.chi = chi
-
-        # initialize runtime variables
-        self.s = s0
-        self.u = -np.cos(theta0)
-        self.phi = phi0
-        self.v = v0
-        self.p = self.table.boundary(phi0)
-        self.n_step = 0
-
-    def update(self, phi0, theta0):
-        self.phi = phi0
-        self.theta = theta0
-
-        self.v = rotate_vector(self.table.tangent(phi0), theta0)
-        self.p = self.table.boundary(phi0)
-        self.s = self.table.get_arclength(phi0)
-        self.u = -np.cos(theta0)
-
-    def step(self, N=1):
-        """
-        Do n iterations of the return map.
-        """
-
-        vs = [self.v]
-        ps = [self.p]
-
-        coordinates = [[self.s, self.u]]
-
-        while N > 0:
-            if self.mode == "classic":
-                # get time of collision with boundary
-                t = self.table.get_collision(self.p, self.v)
-
-                # get collision point
-                self.p = self.p + t*self.v
-
-                # ellipse parameter corresponding to collision point. Caution: cos is not injective!
-                if self.p[1] >= 0:
-                    phi1 = np.arccos(self.p[0]/self.table.a)
-                else:
-                    phi1 = 2*np.pi - np.arccos(self.p[0]/self.table.a)
-
-                # caculate arclength
-                s1 = self.table.get_arclength(phi1)
-
-                # update runtime variables
-                theta1 = angle_between(self.v, self.table.tangent(phi1))
-                u1 = - np.cos(theta1)
-
-                self.v = rotate_vector(self.table.tangent(phi1), theta1)
-                self.s = s1
-                self.u = u1
-                self.phi = phi1
-
-                if self.cs == "Birkhoff":
-                    coordinates.append([s1, u1])
-                elif self.cs == "Custom":
-                    coordinates.append([phi1, theta1])
-                else:
-                    return
-            else:
-                # corresponds to a chord
-                if self.n_step % 2 == 0:
-                    # get time of collision, the parameter of the straight line
-                    t = self.table.get_collision(self.p, self.v)
-
-                    # get collision point
-                    self.p = self.p + t*self.v
-
-                # corresponds to a magnetic arc
-                else:
-                    # the direction of the l_2 chord
-                    v_chord = rotate_vector(self.v, self.chi)
-                    # intersection of l_2 with the boundary
-                    t = self.table.get_collision(self.p, v_chord)
-                    # move base point along l_2 chord
-                    self.p = self.p + t*v_chord
-                    # rotate the velocity by psi=2*chi
-                    self.v = rotate_vector(self.v, 2*self.chi)
-
-            self.n_step += 1
-            N -= 1
-
-            ps.append(self.p)
-            vs.append(self.v)
-
-        ps = np.stack(ps)
-        vs = np.stack(vs)
-        coordinates = np.stack(coordinates)
-
-        if self.mode == "classic":
-            return coordinates
-        else:
-            return ps, vs
-
-    def plot(self, ax, N=10, legend=None):
-        ps, vs = self.step(N=N)
-
-        # plot billiards table
-        ax.add_patch(self.table.get_patch(fill="white"))
-
-        # plot exit and reentry points
-        ax.scatter(ps[:, 0], ps[:, 1], c="purple", zorder=20)
-
-        # plot the larmor centers and -circles
-        larmor_centers = ps[1::2] + self.mu * \
-            rotate_vector(vs[1::2].T, np.pi/2).T
-        ax.scatter(larmor_centers[:, 0],
-                   larmor_centers[:, 1], c="yellow", zorder=20)
-
-        circles = PatchCollection([plt.Circle(tuple(larmor_center), self.mu, alpha=1,
-                                              edgecolor="navy", zorder=0) for larmor_center in larmor_centers])
-
-        circles.set_facecolor([0, 0, 0, 0])
-        circles.set_edgecolor([0, 0, 0, 1])
-        circles.set_zorder(0)
-        ax.add_collection(circles)
-
-        # plot the non-magnetic chords
-        xx = np.vstack([ps[0::2][:, 0], ps[1::2][:, 0]])
-        yy = np.vstack([ps[0::2][:, 1], ps[1::2][:, 1]])
-
-        ax.plot(xx, yy, c="black")
-
-        # plot trajectory properties
-        if legend:
-            text_box = AnchoredText(legend, frameon=True, loc=4, pad=0.5)
-            plt.setp(text_box.patch, facecolor='white', alpha=0.5)
-            ax.add_artist(text_box)
 
 
 class Orbit:
@@ -278,6 +111,10 @@ class Orbit:
         self.s = self.table.get_arclength(phi0)
         self.u = -np.cos(theta0)
 
+    def get_chord(self, p, v):
+        chord = LineString([tuple(p-1000*v), tuple(p+1000*v)])
+        return chord
+
     def step(self, N=1):
         """Take N steps of the orbit
 
@@ -295,13 +132,20 @@ class Orbit:
         while N > 0:
             if self.mode == "classic":
                 # get time of collision with boundary
-                p0 = self.p
-                t = self.table.get_collision(p0, self.v)
 
-                # get collision point
-                p2 = self.p + t*self.v
+                chord = self.get_chord(self.p, self.v)
+
+                p2 = self.table.get_collision(chord)
 
                 coordinates.append(p2)
+
+                # p0 = self.p
+                # t = self.table.get_collision(chord)
+
+                # get collision point
+                # p2 = self.p + t*self.v
+
+                # coordinates.append(p2)
 
                 # increase step counter by one
                 N -= 1
@@ -445,9 +289,11 @@ class Action:
                 phi2 = self.table.get_polar_angle(coordinates[2])
 
                 # Area inside the circular arc but outside of the billiard table
-                S = np.pi*self.mu**2 - area_overlap(self.a, self.b, self.mu, centers[0])
+                S = np.pi*self.mu**2 - \
+                    area_overlap(self.a, self.b, self.mu, centers[0])
 
-                phii, phif = intersection_parameters(self.a, self.b, self.mu, centers[0])
+                phii, phif = intersection_parameters(
+                    self.a, self.b, self.mu, centers[0])
 
                 # length of first chord
                 l1 = np.linalg.norm(coordinates[1] - coordinates[0], ord=2)
@@ -466,6 +312,7 @@ class Action:
 
 
 def periodic_orbits(a, b, mu):
+    from trash import Trajectory
     # orbit properties
     m = 5
     n = 8

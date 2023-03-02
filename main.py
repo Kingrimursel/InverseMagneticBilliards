@@ -12,7 +12,7 @@ if __name__ == "__main__":
     mu = 1/5
 
     cs = "Custom"
-    mode = "inversemagnetic"
+    mode = "classic"
     type = "GeneratingFunction"
 
     exec = "generate"
