@@ -2,6 +2,7 @@ import os
 import torch
 from pathlib import Path
 from torch.utils.data import DataLoader
+from tqdm import tqdm
 
 from util import batch_jacobian, batch_hessian
 from dynamics import Orbit
@@ -39,12 +40,18 @@ def train_model(model,
     validation_loader = DataLoader(
         validation_dataset, batch_size=batch_size, shuffle=True, pin_memory=True)
 
+    train_loss = 0.
+    validation_loss = 0.
+
     # Iterate over training epochs
-    for epoch in range(num_epochs):
+    for epoch in (pbar := tqdm(range(num_epochs))):
         # Track training loss
         epoch_train_loss = 0.0
         epoch_validation_loss = 0.0
         epoch_hess_train_loss = 0.0
+
+        pbar.set_postfix({'Training Loss': train_loss,
+                         'Validation Loss': validation_loss})
 
         # Train the model for one epoch
         for inputs, targets in train_loader:
@@ -66,8 +73,11 @@ def train_model(model,
             loss = loss_fn(outputs, targets)
 
             # regularizer loss
-            hessian = torch.squeeze(batch_hessian(model.model, inputs))
-            hess_loss = alpha*hessian.pow(2).mean()
+            if False:
+                hessian = torch.squeeze(batch_hessian(model.model, inputs))
+                hess_loss = alpha*hessian.pow(2).mean()
+            else:
+                hess_loss = torch.zeros(1)
 
             # total loss as weighted sum
             total_loss = loss + hess_loss
@@ -121,9 +131,6 @@ def train_model(model,
                 "alpha": alpha
             },
                 os.path.join(dir, "epochs", str(epoch+1), "model.pth"))
-
-        print('Epoch: {}, Training Loss: {:.4f}, Validation Loss: {:.4f}. Hessian Loss: {:.4f}'.format(
-            epoch+1, train_loss, validation_loss, hess_train_loss))
 
     # save final model
     if dir:

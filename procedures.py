@@ -15,7 +15,7 @@ def training_procedure(**kwargs):
     training.plot_loss()
 
 
-def minimization_procedure(a, b, n_epochs=100, dir=None, type="GeneratingFunction", cs="Custom"):
+def minimization_procedure(a, b, mu, n_epochs=100, dir=None, type="GeneratingFunction", cs="Custom", mode="classic"):
     # load model
     filename = os.path.join(MODELDIR, dir, "model.pth")
 
@@ -24,38 +24,42 @@ def minimization_procedure(a, b, n_epochs=100, dir=None, type="GeneratingFunctio
         torch.load(filename)["model_state_dict"])
 
     # number of applications of return map
-    frequency = (2, 5)
+    frequency = (1, 9)
 
     # initialize an orbit
     orbit = Orbit(a=a,
                   b=b,
+                  mu=mu,
                   frequency=frequency,
-                  init="random")
+                  mode=mode,
+                  init="uniform")
 
     # initialize and execute minimizer
     minimizer = Minimizer(orbit,
                           generating_function.model,
                           n_epochs=n_epochs,
                           frequency=frequency,
-                          exact=True)
+                          exact=False)
 
     # minimize action
     minimizer.minimize()
 
     # initialize diagnostics
-    diagnostics = Diagnostics(orbit=orbit, type=type, cs=cs)
+    diagnostics = Diagnostics(orbit=orbit, type=type, cs=cs, mode=mode)
 
     observed_frequency = diagnostics.frequency()
 
-    print(f"Expected Frequency: (m,n) = {frequency}. Observed Frequency: (m,n) = {observed_frequency}")
+    print(
+        f"Expected Frequency: (m, n) = {frequency}. Observed Frequency: (m, n) = {observed_frequency}")
 
     # plot the orbit
-    Path(os.path.join(GRAPHICSDIR, type, cs, TODAY)).mkdir(parents=True, exist_ok=True)
+    Path(os.path.join(GRAPHICSDIR, type, cs, TODAY)).mkdir(
+        parents=True, exist_ok=True)
     img_path = os.path.join(GRAPHICSDIR, type, cs, TODAY, "orbit.png")
     orbit.plot(img_path=img_path)
 
     # plot the minimization loss
-    # minimizer.plot()
+    minimizer.plot()
 
     # plot the gradient analysis
     # diagnostics.derivative(a, b, dir)

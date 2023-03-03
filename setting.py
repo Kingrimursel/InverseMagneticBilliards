@@ -6,6 +6,7 @@ from scipy.special import ellipeinc
 import matplotlib as mpl
 
 from util import solve_polynomial, get_polar_angle
+from conf import RES_TABLE
 
 
 class Table:
@@ -17,9 +18,10 @@ class Table:
         self.a = a
         self.b = b
 
-        self.polygon = affinity.scale(Point(0, 0).buffer(1), a, b)
+        self.polygon = affinity.scale(
+            Point(0, 0).buffer(1, resolution=RES_TABLE), a, b)
 
-    def get_collision(self, linestring):
+    def get_collision(self, linestring, origin=None):
         """
         Calculates the second intersection point of a straight line parametrized by its anchor p
         and a direction v with the billiard table's boundary.
@@ -27,8 +29,23 @@ class Table:
 
         intersection = self.polygon.intersection(linestring)
 
-        return np.array(intersection.coords[1])
+        if len(intersection.coords) == 2:
+            return np.array(intersection.coords[1])
+        else:
+            return np.array([None, None])
 
+        try:
+            if np.linalg.norm(intersection.coords[0] - test) >= np.linalg.norm(intersection.coords[1] - test):
+                print("ALARM")
+        except:
+            from matplotlib import pyplot as plt
+            fig, ax = plt.subplots()
+            ax.plot(*self.polygon.exterior.xy)
+            ax.plot(*linestring.xy)
+            ax.set_aspect("equal")
+            plt.show()
+
+        return np.array(intersection.coords[1])
 
         # t = (- p[0]*v[0]/self.a**2 - p[1]*v[1]/self.b**2 + np.sqrt(
         #    self.b**2*v[0]**2-p[1]**2*v[0]**2+2*p[0]*p[1]*v[0]*v[1]+self.a**2*v[1]**2 - p[0]**2*v[1]**2)/(self.a*self.b))/(v[0]**2/self.a**2 + v[1]**2/self.b**2)
@@ -76,7 +93,7 @@ class Table:
     def get_polygon(self):
         return self.polygon
 
-    def get_reenter_point(self, center, mu, exit_point):
+    def get_reenter_point(self, table, mu, center, exit_point):
         """ Get the point where the particle reenters the table after a bounce
 
         Args:
@@ -84,27 +101,20 @@ class Table:
             exit_point (np.array of shape (2)): point where the particle leaves the table
         """
 
-        a4 = self.a**2*(center[1]**2 - self.b**2) + \
-            self.b**2*(center[0] - mu)**2
-        a3 = 4*self.a**2*mu*center[1]
-        a2 = 2*(self.a**2*(center[1]**2 - self.b**2 +
-                2*mu**2) + self.b**2*(center[0]**2 - mu**2))
-        a1 = 4*self.a**2*mu*center[1]
-        a0 = self.a**2*(center[1]**2 - self.b**2) + \
-            self.b**2*(center[0] + mu)**2
+        circle = Point(center).buffer(mu)
+        intersection = table.polygon.exterior.intersection(circle.exterior)
 
-        # solve the polynomial
-        roots = solve_polynomial(a4, a3, a2, a1, a0)
+        if not intersection.is_empty:
+            sol = intersection.geoms
 
-        # get corresponding intersetion points
+            intersections = [list(list(sol[0].coords)[0]),
+                            list(list(sol[1].coords)[0])]
 
-        # TODO: implement a class "LarmorCircle"
-        intersections = np.array(
-            [center[0] + mu*(1-roots**2)/(1+roots**2), center[1] + 2*mu*roots/(1+roots**2)]).T
-
-        idx_reenter_point = np.argmax(
-            np.sum((intersections - exit_point)**2, axis=1))
-
-        reenter_point = intersections[idx_reenter_point]
+            idx_reenter_point = np.argmax(
+                np.sum((intersections - exit_point)**2, axis=1))
+            reenter_point = intersections[idx_reenter_point]
+        else:
+            reenter_point = [None, None]
+        
 
         return reenter_point

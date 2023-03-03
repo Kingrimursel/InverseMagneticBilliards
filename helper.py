@@ -1,6 +1,7 @@
 import os
 import torch
 from torch.utils.data import DataLoader
+from tqdm import tqdm
 import numpy as np
 from pathlib import Path
 from datetime import datetime
@@ -20,6 +21,7 @@ class Training:
                  num_epochs=100,
                  cs="Custom",
                  type="ReturnMap",
+                 mode="classic",
                  train_dataset="train50k.npy",
                  batch_size=128,
                  save=True,
@@ -28,6 +30,7 @@ class Training:
         self.num_epochs = num_epochs
         self.cs = cs
         self.type = type
+        self.mode = mode
         self.train_dataset = train_dataset
         self.save = save
         self.alpha = alpha
@@ -40,10 +43,10 @@ class Training:
 
     def train(self):
         # relevant directories
-        data_dir = os.path.join(DATADIR, self.type, self.cs)
+        data_dir = os.path.join(DATADIR, self.type, self.cs, self.mode)
 
         if self.save:
-            model_dir = os.path.join(MODELDIR, self.type, self.cs, TODAY)
+            model_dir = os.path.join(MODELDIR, self.type, self.cs, self.mode, TODAY)
             Path(model_dir).mkdir(parents=True, exist_ok=True)
         else:
             model_dir = None
@@ -110,7 +113,7 @@ class Minimizer:
     def __init__(self, orbit, action_fn, n_epochs=50, frequency=(), *args, **kwargs):
         self.orbit = orbit
         self.n_epochs = n_epochs
-        self.optimizer = torch.optim.Adam([orbit.phi], lr=1e-2)
+        self.optimizer = torch.optim.Adam([orbit.phi], lr=1e-3)
         self.action_fn = action_fn
         self.frequency = frequency
         self.m, self.n = frequency
@@ -123,8 +126,13 @@ class Minimizer:
     def minimize(self):
         grad_losses = []
         m_losses = []
-        for epoch in range(self.n_epochs):
+
+        grad_loss = torch.zeros(1)
+
+        for epoch in (pb := tqdm(range(self.n_epochs))):
             self.optimizer.zero_grad()
+
+            pb.set_postfix({"Loss": grad_loss.item()}) 
 
             # calculate the gradient loss
             grad_loss = torch.linalg.norm(
@@ -132,12 +140,12 @@ class Minimizer:
             # print(batch_jacobian(self.discrete_action, self.orbit.phi).shape)
             # grad_loss = batch_jacobian(self.discrete_action, self.orbit.phi).sum()
 
+            # a loss that should enforce the correct frequency?!
             if len(self.frequency) != 0:
                 phi_centered = self.orbit.phi - self.orbit.phi[0]
                 diff = phi_centered - torch.roll(phi_centered, -1)
                 m_approx = torch.sum(sigmoid_scaled(diff, alpha=10))
                 m_loss = (m_approx - self.m)**2
-
             else:
                 m_loss = torch.tensor([0], requires_grad=True)
 
@@ -156,7 +164,7 @@ class Minimizer:
             m_losses.append(m_loss)
 
             # log the result
-            print('Epoch: {}, Loss: {:.4f}'.format(epoch+1, grad_loss))
+            # print('Epoch: {}, Loss: {:.4f}'.format(epoch+1, grad_loss))
 
         self.grad_losses = torch.tensor(grad_losses)
         self.m_losses = torch.tensor(m_losses)
@@ -174,11 +182,12 @@ class Minimizer:
 
 
 class Diagnostics:
-    def __init__(self, orbit=None, cs="Custom", type="ReturnMap", *args, **kwargs):
+    def __init__(self, orbit=None, cs="Custom", type="ReturnMap", mode="classic", *args, **kwargs):
         self.orbit = orbit
 
         self.cs = cs
         self.type = type
+        self.mode = mode
 
     def reflection_angle(self, unit="rad"):
         us = self.orbit.get_u()

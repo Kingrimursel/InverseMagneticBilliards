@@ -12,17 +12,17 @@ if __name__ == "__main__":
     mu = 1/5
 
     cs = "Custom"
-    mode = "classic"
+    mode = "inversemagnetic"
     type = "GeneratingFunction"
 
-    exec = "generate"
+    exec = "minimize"
 
     if exec == "generate":
         generate_dataset(a,
                          b,
                          mu,
-                         100000,
-                         "train100k.npy",
+                         10000,
+                         "validate10k.npy",
                          cs=cs,
                          mode=mode,
                          type=type)
@@ -30,6 +30,7 @@ if __name__ == "__main__":
         training_procedure(num_epochs=100,
                            type=type,
                            cs=cs,
+                           mode=mode,
                            train_dataset="train100k.npy",
                            save=True,
                            batch_size=1024,
@@ -38,7 +39,9 @@ if __name__ == "__main__":
         minimization_procedure(
             a,
             b,
-            n_epochs=100,
-            dir="GeneratingFunction/Custom/2023-02-24",  # 23
+            mu,
+            n_epochs=1000,
+            dir="GeneratingFunction/Custom/inversemagnetic/2023-03-03",
             type=type,
-            cs=cs)
+            cs=cs,
+            mode=mode)

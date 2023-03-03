@@ -1,9 +1,12 @@
 # plot remaining parts
+from shapely.geometry import Point
+import matplotlib.pyplot as plt
+from shapely import affinity
 i = 0
 for p, v in zip(ps, vs):
     # ax.scatter(*p, c="purple", zorder=20)
 
-    #if i % 2 == 0:
+    # if i % 2 == 0:
     #    ax.plot([ps[i][0], ps[i+1][0]], [ps[i][1], ps[i+1][1]], c="navy")
     # else:
     #    v_to_mu = mu * rotate_vector(v, np.pi/2)
@@ -20,9 +23,11 @@ for p, v in zip(ps, vs):
 def test_circ(xi, xf):
     return y0*(xf-xi) + 1/2*((x0 - xf)*abs(y0 - yf) + (xi - x0)*abs(y0 - yi)) + mu**2*np.angle(1/mu**2*((x0-xi)*(x0-xf) + abs(y0-yi)*abs(y0-yf) + 1j*((x0-xf)*abs(y0-yi) - (x0 - xi)*abs(y0-yf))))
 
+
 def int_ellipse(x):
     return b*(1/2*x*np.sqrt(1-(x/a)**2) - np.log(-np.sqrt(np.array([-1/a**2], dtype=complex))*x + np.sqrt(1 - (x/a)**2))/(2*np.sqrt(np.array([-1/a**2], dtype=complex))))
     # return b*(1/2*x*np.sqrt(1 - x**2/a**2) - np.log(-x*np.sqrt(-1j/a**2) + np.sqrt(1 - x**2/a**2))/(2*np.sqrt(-1j/a**2)))
+
 
 def int_circ(x):
     return -1j*mu**2*np.log(-1j*x + 1j*center[0] + np.sqrt(mu**2 - (x - center[0])**2))/2 + x*center[1] - x*np.sqrt(mu**2 - (x - center[0])**2)/2 + center[0]*np.sqrt(mu**2 - (x - center[0])**2)/2
@@ -38,11 +43,13 @@ yf = np.array(yf).astype(np.float64)
 x0 = center[0]
 y0 = center[1]
 
+
 def aue(xi, xf):
     integral = 1/(2*a)*b*(xf*np.sqrt(a**2 - xf**2) - xi*np.sqrt(a**2 - xi**2) + 1j*a **
-                            2*(np.log(-1j*xf + np.sqrt(a**2 - xf**2)) - np.log(-1j*xi + np.sqrt(a**2 - xi**2))))
+                          2*(np.log(-1j*xf + np.sqrt(a**2 - xf**2)) - np.log(-1j*xi + np.sqrt(a**2 - xi**2))))
 
     return np.real(integral)
+
 
 def auc(xi, xf):
     """Area under ellipse, between the x values xi and xf
@@ -61,15 +68,13 @@ def auc(xi, xf):
 
 # function that uses shapely to calculate the area enclosed by an ellipse and a circle
 
-from shapely.geometry import Point
-from shapely import affinity
-import matplotlib.pyplot as plt
+
 def ellipse_circle_intersection_area(a, b, center, mu):
     # Create Shapely geometry objects for the ellipse and circle
     ellipse = affinity.scale(Point(0, 0).buffer(1), a, b)
     circle = Point(*center).buffer(mu)
 
-    fig, ax = plt.subplots() 
+    fig, ax = plt.subplots()
     ax.plot(*ellipse.exterior.xy)
     ax.plot(*circle.exterior.xy)
     ax.set_aspect("equal")
@@ -77,19 +82,19 @@ def ellipse_circle_intersection_area(a, b, center, mu):
 
     # Calculate the intersection between the two shapes
     intersection = ellipse.intersection(circle)
-    
+
     # If there is no intersection, return 0
     if intersection.is_empty:
         return 0
-    
+
     # If the intersection is a point, return 0 (since a point has zero area)
     if intersection.geom_type == 'Point':
         return 0
-    
+
     # If the intersection is a line, return 0 (since a line has zero area)
     if intersection.geom_type == 'LineString':
         return 0
-    
+
     # If the intersection is a polygon, calculate its area and return it
     if intersection.geom_type == 'Polygon':
         return intersection.area
@@ -102,9 +107,11 @@ def area_difference(xi, xf):
 
     # return aue(xi, xf) - auc(xi, xf)
 
+
 res = area_difference(xi, xf)
 
 return res
+
 
 class Trajectory:
     def __init__(self, phi0, theta0, mu, a, b, mode="classic", cs="Birkhoff"):
@@ -273,3 +280,99 @@ class Trajectory:
             text_box = AnchoredText(legend, frameon=True, loc=4, pad=0.5)
             plt.setp(text_box.patch, facecolor='white', alpha=0.5)
             ax.add_artist(text_box)
+
+
+if type == "ReturnMap":
+    print(f"GENERATING DATASET OF SIZE {n_samples}...")
+
+    # initialize grid of angles
+    phis = np.random.uniform(low=0, high=2*np.pi, size=n_samples)
+    thetas = np.random.uniform(low=eps, high=np.pi-eps, size=n_samples)
+
+    orbit = Orbit(a, b, frequency=(1, 1), mode=mode, cs=cs)
+
+    coordinates = []
+
+    for phi, theta in zip(phis, thetas):
+        orbit.update(phi, theta)
+        new_coordinates = orbit.step(N=1)
+        coordinates.append(new_coordinates)
+
+    coordinates = np.stack(coordinates[0::2])
+
+    # print(f"SAVING DATASET TO {filename}...")
+    # np.save(filename, coordinates)
+
+
+def periodic_orbits(a, b, mu):
+    from trash import Trajectory
+    # orbit properties
+    m = 5
+    n = 8
+    N = 2*n-1
+
+    # initial conditions
+    s0 = 0
+    theta0 = get_initial_theta(mu=mu, m=m, n=n).root
+
+    # Plot dynamics
+    fig, ax = plt.subplots()
+    ax.axis("equal")
+    ax.axis("off")
+
+    trajectory = Trajectory(s0, theta0, mu, a=a, b=b, mode="InverseMagnetic")
+    trajectory.plot(ax, N=N, legend=get_legend(a, b, m, n))
+
+    m_n_max = 16
+
+    # Slider
+    m_slider_ax = fig.add_axes([0.25, 0.1, 0.65, 0.03])
+    m_slider = Slider(
+        ax=m_slider_ax,
+        valstep=np.arange(1, m_n_max),
+        label='m',
+        valmin=1,
+        valmax=m_n_max,
+        valinit=m,
+    )
+
+    n_slider_ax = fig.add_axes([0.25, 0.05, 0.65, 0.03])
+    n_slider = Slider(
+        ax=n_slider_ax,
+        valstep=np.arange(1, m_n_max),
+        label='n',
+        valmin=1,
+        valmax=m_n_max,
+        valinit=n,
+    )
+
+    update_slider_range(m, n, m_slider, n_slider, m_n_max)
+
+    def update(val):
+        # orbit properties
+        m = m_slider.val
+        n = n_slider.val
+        N = 2*n-1
+
+        # initial conditions
+        s0 = 0
+        theta0 = get_initial_theta(mu=mu, m=m, n=n).root
+
+        # Plot dynamics
+        ax.clear()
+        ax.axis("equal")
+        ax.axis("off")
+
+        traj = Trajectory(s0, theta0, mu, a=a, b=b)
+        traj.plot(ax, N=N, legend=get_legend(a, b, m, n))
+
+        # update slider
+        update_slider_range(m, n, m_slider, n_slider, m_n_max)
+
+        fig.canvas.draw()
+
+    m_slider.on_changed(update)
+    n_slider.on_changed(update)
+
+    plt.show()
+    plt.savefig("figure.png")

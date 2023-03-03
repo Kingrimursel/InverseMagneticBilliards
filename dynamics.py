@@ -1,21 +1,15 @@
 import torch
 import numpy as np
+from tqdm import tqdm
 from matplotlib import pyplot as plt
 from matplotlib.collections import PatchCollection
 from matplotlib.offsetbox import AnchoredText
 from matplotlib.widgets import Slider
 
-from shapely.geometry import LineString
+from shapely.geometry import LineString, Point
 
 from setting import Table
-from util import (get_initial_theta,
-                  get_legend,
-                  update_slider_range,
-                  get_chi,
-                  rotate_vector,
-                  area_overlap,
-                  intersection_parameters,
-                  angle_between,
+from util import (rotate_vector,
                   pair,
                   is_left_of)
 
@@ -112,7 +106,7 @@ class Orbit:
         self.u = -np.cos(theta0)
 
     def get_chord(self, p, v):
-        chord = LineString([tuple(p-1000*v), tuple(p+1000*v)])
+        chord = LineString([tuple(p-10*v), tuple(p+10*v)])
         return chord
 
     def step(self, N=1):
@@ -125,78 +119,119 @@ class Orbit:
             np.array: The coordinates corresponding to the orbit
         """
 
-        coordinates = [self.p]
-        centers = []
+        raise NotImplementedError
 
-        n_step = 0
-        while N > 0:
-            if self.mode == "classic":
-                # get time of collision with boundary
+    def plot(self, img_path=None):
+        print(self.mode)
+        fig, ax = plt.subplots()
 
-                chord = self.get_chord(self.p, self.v)
+        ax.add_patch(self.table.get_patch(fill="white"))
+        ax.set_xlim([- max(self.table.a, self.table.b) - 0.5,
+                    max(self.table.a, self.table.b) + 0.5])
+        ax.set_ylim([- max(self.table.a, self.table.b) - 0.5,
+                    max(self.table.a, self.table.b) + 0.5])
 
-                p2 = self.table.get_collision(chord)
+        points0 = self.table.boundary(self.phi0.detach())
+        points = self.table.boundary(self.phi.detach())
+        ax.scatter(points[:, 0], points[:, 1])
+        ax.scatter(points0[:, 0], points0[:, 1])
 
-                coordinates.append(p2)
+        # plot the chords
+        xx = np.hstack([points[:, 0], points[0, 0]])
+        yy = np.hstack([points[:, 1], points[0, 1]])
 
-                # p0 = self.p
-                # t = self.table.get_collision(chord)
+        ax.plot(xx, yy, c="black")
+        ax.set_aspect("equal")
 
-                # get collision point
-                # p2 = self.p + t*self.v
+        for i, (xi, yi) in enumerate(zip(xx[:-1], yy[:-1])):
+            plt.annotate(f'{i + 1}', xy=(xi, yi), xytext=(1.2*xi, 1.2*yi))
 
-                # coordinates.append(p2)
+        if img_path is not None:
+            plt.savefig(img_path)
 
-                # increase step counter by one
-                N -= 1
+        plt.show()
 
-            elif self.mode == "inversemagnetic":
-                # corresponds to a chord
-                if n_step % 2 == 0:
-                    # get time of collision, the parameter of the straight line
-                    p0 = coordinates[-1]
 
-                    # FIXME: i think it might be choosing the wrong solution here sometimes i think. To make sure,
-                    # just choose the one further away from self.p?!
-                    t = self.table.get_collision(p0, self.v)
+class ReturnMap:
+    def __init__(self, a, b, mu, mode="classic", *args, **kwargs):
+        self.a = a
+        self.b = b
+        self.mu = mu
+        self.mode = mode
 
-                    # get collision point
-                    p1 = p0 + t*self.v
+        self.table = Table(a=a, b=b)
 
-                    coordinates.append(p1)
+    def get_chord(self, p, v):
+        chord = LineString([tuple(p-10*v), tuple(p+10*v)])
+        return chord
 
-                    # do not increase the step counter because this is only a temporary step
-                    N -= 0
+    def __call__(self, phi0, theta0):
+        p0 = self.table.boundary(phi0)
+        v0 = rotate_vector(self.table.tangent(phi0), theta0)
 
-                # corresponds to a magnetic arc
-                else:
-                    p0 = coordinates[-2]
-                    p1 = coordinates[-1]
-
-                    # get larmor center
-                    center = self.get_larmor_center(p0, p1)
-
-                    centers.append(center)
-
-                    # get reenter point
-                    p2 = self.table.get_reenter_point(center, self.mu, p1)
-                    coordinates.append(p2)
-
-                    # increase step counter by one
-                    N -= 1
-
-            n_step += 1
-
-        # stack coordinates
-        coordinates = np.stack(coordinates)
-
-        # return coordinates in classical case and coordinates/centers in inverse magnetic case
         if self.mode == "classic":
-            return coordinates
+            # get linestring object corresponding to chord
+            chord = self.get_chord(p0, v0)
+
+            # collision point
+            p2 = self.table.get_collision(chord)
+
+            coordinates = np.stack([p0, p2])
+
+            center = None
         elif self.mode == "inversemagnetic":
-            return coordinates, centers
+            # corresponds to a chord
+            # get time of collision, the parameter of the straight line
+
+            # chord corresponding to first part of trajectory
+            chord = self.get_chord(p0, v0)
+
+            # collision point
+            p1 = self.table.get_collision(chord)
+
+            # get larmor center
+            # FIXME: this sometimes returns the wrong center!!
+            if p1[0] is not None:
+                center = self.get_larmor_center(p0, p1)
+
+                # get reenter point
+                p2 = self.table.get_reenter_point(
+                    self.table, self.mu, center, p1)
+
+                # TODO: vielleicht eine gemeinsame funktion um die intersection points zu bekommen, und die dann für get_reenter_point and get_parameters nutzen
+                # TODO: function for larmor circle? Or even a class?
+
+            else:
+                center = [None, None]
+                p2 = [None, None]
+
+            # stack the points
+            coordinates = np.stack([p0, p1, p2])
+
         else:
-            return
+            coordinates, center = None, None
+
+        return coordinates, center
+
+    def plot(self, phi0, theta0):
+        # apply the return
+        coordinates, center = self.__call__(phi0, theta0)
+
+        circle = Point(center).buffer(self.mu)
+
+        fig, ax = plt.subplots()
+        ax.set_aspect("equal")
+
+        ax.plot(*self.table.polygon.exterior.xy)
+
+        if circle is not None:
+            ax.plot(*circle.exterior.xy)
+            ax.scatter(coordinates[:, 0], coordinates[:, 1])
+
+        for i, (xi, yi) in enumerate(zip(coordinates[:, 0], coordinates[:, 1])):
+            plt.annotate(f'{i}', xy=(xi, yi), xytext=(1.2*xi, 1.2*yi))
+
+        plt.show()
 
     def get_larmor_centers(self, p0, p1):
         x0 = p0[0]
@@ -224,162 +259,6 @@ class Orbit:
     def get_larmor_center(self, p0, p1):
         center1, center2 = self.get_larmor_centers(p0, p1)
 
-        center = center1 if is_left_of(p1-p0, center1) else center2
+        center = center1 if is_left_of(p1-p0, center1-p0) else center2
 
         return center
-
-    def plot(self, img_path=None):
-        fig, ax = plt.subplots()
-
-        ax.add_patch(self.table.get_patch(fill="white"))
-        ax.set_xlim([-3, 3])
-        ax.set_ylim([-3, 3])
-
-        points0 = self.table.boundary(self.phi0.detach())
-        points = self.table.boundary(self.phi.detach())
-        ax.scatter(points[:, 0], points[:, 1])
-        ax.scatter(points0[:, 0], points0[:, 1])
-
-        # plot the chords
-        xx = np.hstack([points[:, 0], points[0, 0]])
-        yy = np.hstack([points[:, 1], points[0, 1]])
-
-        ax.plot(xx, yy, c="black")
-        ax.set_aspect("equal")
-
-        for i, (xi, yi) in enumerate(zip(xx[:-1], yy[:-1])):
-            plt.annotate(f'{i + 1}', xy=(xi, yi), xytext=(1.2*xi, 1.2*yi))
-
-        if img_path is not None:
-            plt.savefig(img_path)
-
-        plt.show()
-
-
-class Action:
-    def __init__(self, a, b, mu, mode="classic", *args, **kwargs):
-        self.mode = mode
-        self.a = a
-        self.b = b
-        self.mu = mu
-        self.kwargs = kwargs
-
-        self.table = Table(a=a, b=b)
-
-    def __call__(self, phi0s, theta0):
-        orbit = Orbit(self.a, self.b, self.mu,
-                      frequency=(1, 1), mode=self.mode, **self.kwargs)
-
-        Gs = []
-        phi2s = []
-
-        for phi0, theta0 in zip(phi0s, theta0):
-            phi0 = 0.
-            theta0 = np.pi/2
-            orbit.update(phi0, theta0)
-
-            if self.mode == "classic":
-                coordinates = orbit.step(N=1)
-                G = np.linalg.norm(coordinates[0] - coordinates[1], ord=2)
-                phi2 = self.table.get_polar_angle(coordinates[1])
-            elif self.mode == "inversemagnetic":
-                coordinates, centers = orbit.step(N=1)
-
-                # ellipse parameters corresponding to intersection points
-                phi2 = self.table.get_polar_angle(coordinates[2])
-
-                # Area inside the circular arc but outside of the billiard table
-                S = np.pi*self.mu**2 - \
-                    area_overlap(self.a, self.b, self.mu, centers[0])
-
-                phii, phif = intersection_parameters(
-                    self.a, self.b, self.mu, centers[0])
-
-                # length of first chord
-                l1 = np.linalg.norm(coordinates[1] - coordinates[0], ord=2)
-
-                # length of circular arc outside of the billiard table
-                length_gamma = np.abs(self.mu * (phif - phii))
-
-                # the action action
-                G = - l1 - length_gamma + S
-                print(l1, length_gamma, S, G)
-
-            Gs.append(G)
-            phi2s.append(phi2)
-
-        return phi0s, phi2s, Gs
-
-
-def periodic_orbits(a, b, mu):
-    from trash import Trajectory
-    # orbit properties
-    m = 5
-    n = 8
-    N = 2*n-1
-
-    # initial conditions
-    s0 = 0
-    theta0 = get_initial_theta(mu=mu, m=m, n=n).root
-
-    # Plot dynamics
-    fig, ax = plt.subplots()
-    ax.axis("equal")
-    ax.axis("off")
-
-    trajectory = Trajectory(s0, theta0, mu, a=a, b=b, mode="InverseMagnetic")
-    trajectory.plot(ax, N=N, legend=get_legend(a, b, m, n))
-
-    m_n_max = 16
-
-    # Slider
-    m_slider_ax = fig.add_axes([0.25, 0.1, 0.65, 0.03])
-    m_slider = Slider(
-        ax=m_slider_ax,
-        valstep=np.arange(1, m_n_max),
-        label='m',
-        valmin=1,
-        valmax=m_n_max,
-        valinit=m,
-    )
-
-    n_slider_ax = fig.add_axes([0.25, 0.05, 0.65, 0.03])
-    n_slider = Slider(
-        ax=n_slider_ax,
-        valstep=np.arange(1, m_n_max),
-        label='n',
-        valmin=1,
-        valmax=m_n_max,
-        valinit=n,
-    )
-
-    update_slider_range(m, n, m_slider, n_slider, m_n_max)
-
-    def update(val):
-        # orbit properties
-        m = m_slider.val
-        n = n_slider.val
-        N = 2*n-1
-
-        # initial conditions
-        s0 = 0
-        theta0 = get_initial_theta(mu=mu, m=m, n=n).root
-
-        # Plot dynamics
-        ax.clear()
-        ax.axis("equal")
-        ax.axis("off")
-
-        traj = Trajectory(s0, theta0, mu, a=a, b=b)
-        traj.plot(ax, N=N, legend=get_legend(a, b, m, n))
-
-        # update slider
-        update_slider_range(m, n, m_slider, n_slider, m_n_max)
-
-        fig.canvas.draw()
-
-    m_slider.on_changed(update)
-    n_slider.on_changed(update)
-
-    plt.show()
-    plt.savefig("figure.png")

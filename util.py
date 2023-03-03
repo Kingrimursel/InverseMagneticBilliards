@@ -147,25 +147,41 @@ def get_polar_angle(a,  p):
     return phi
 
 
-def intersection_parameters(a, b, mu, center):
-    x_symb, y_symb = sp.symbols('x y', real=True)
+def intersection_parameters(table, mu, center):
+    circle = Point(center).buffer(mu)
 
-    ellipse = (x_symb**2/a**2 + y_symb**2/b**2 - 1)
-    circle = ((x_symb-center[0])**2 + (y_symb-center[1])**2 - mu**2)
+    intersection = table.polygon.exterior.intersection(circle.exterior)
 
-    sol = sp.solve([ellipse, circle], [x_symb, y_symb])
-    sol = np.array(sol).astype(np.float64)
+    if not intersection.is_empty:
+        sol = table.polygon.exterior.intersection(circle.exterior).geoms
 
-    #print(sol)
-    #print(np.array(center))
+        phii = get_polar_angle(
+            1, 1/mu*(list(list(sol[0].coords)[0]) - np.array(center)))
+        phif = get_polar_angle(
+            1, 1/mu*(list(list(sol[1].coords)[0]) - np.array(center)))
 
-    phii = get_polar_angle(1, 1/mu*(sol[0] - np.array(center)))
-    phif = get_polar_angle(1, 1/mu*(sol[1] - np.array(center)))
+        return phii, phif
 
-    return phii, phif
+    else:
+        return None, None
+
+    from matplotlib import pyplot as plt
+    fig, ax = plt.subplots()
+
+    ax.plot(*circle.exterior.xy)
+    ax.plot(*table.polygon.exterior.xy)
+
+    plt.show()
+
+    # sol = np.array(sol).astype(np.float64)
+
+    print(sol)
+
+    # print(sol)
+    # print(np.array(center))
 
 
-def area_overlap(a, b, mu, center):
+def area_overlap(table, mu, center):
     """Returns the area enclosed by an ellipse and a circle
 
     Args:
@@ -178,28 +194,17 @@ def area_overlap(a, b, mu, center):
         float: area enclosed by ellipse and circle
     """
 
-
     # Create circle and ellipse objects
     circle = Point(center).buffer(mu)
-    ellipse = affinity.scale(Point(0, 0).buffer(1), a, b)
 
     # Calculate intersection area using shapely
-    intersection = circle.intersection(ellipse)
-
-    from matplotlib import pyplot as plt
-    fig, ax = plt.subplots()
-
-    ax.plot(*ellipse.exterior.xy)
-    ax.plot(*circle.exterior.xy)
-    ax.axis("equal")
-
-    plt.show()
+    intersection = circle.intersection(table.polygon)
 
     return intersection.area
 
 
 def is_left_of(v, p):
-    """ Function that checks if a point p is on the levt of a vector v
+    """ Function that checks if a point p is on the left of a vector v
 
     Args:
         v (np.array of shape (2)): vector
@@ -209,7 +214,8 @@ def is_left_of(v, p):
         bool: True if p is on the left of v, False otherwise
     """
 
-    return np.cross(v, p) < 0
+
+    return np.cross(v, p) > 0
 
 
 def solve_polynomial(a, b, c, d, e):

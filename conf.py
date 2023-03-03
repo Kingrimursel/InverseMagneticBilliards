@@ -43,3 +43,5 @@ MODELDIR = os.path.join(BASEDIR, "output/models")
 GRAPHICSDIR = os.path.join(BASEDIR, "output/graphics")
 
 TODAY = datetime.today().strftime("%Y-%m-%d")
+
+RES_TABLE = 1e3
