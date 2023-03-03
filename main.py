@@ -21,8 +21,8 @@ if __name__ == "__main__":
         generate_dataset(a,
                          b,
                          mu,
-                         10000,
-                         "validate10k.npy",
+                         100000,
+                         "train100k.npy",
                          cs=cs,
                          mode=mode,
                          type=type)

@@ -247,7 +247,6 @@ class Diagnostics:
         validation_dataset = GeneratingFunctionDataset(
             os.path.join(data_dir, "validate10k.npy"))
 
-        # TODO: set shuffle to True again
         validation_loader = DataLoader(
             validation_dataset, batch_size=1024, shuffle=True, pin_memory=True)
 

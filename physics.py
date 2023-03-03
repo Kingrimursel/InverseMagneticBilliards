@@ -56,19 +56,25 @@ class Action:
                 # Area inside the circular arc but outside of the billiard table
                 S = np.pi*self.mu**2 - \
                     area_overlap(self.table, self.mu, center)
+                
+                assert S > 0
 
                 phii, phif = intersection_parameters(
                     self.table, self.mu, center)
+                
+                phi_delta = phif - phii if phif > phii else (phif + 2*np.pi) - phii
 
+                assert phi_delta > 0
+                
                 if phii is not None:
                     # length of first chord
                     l1 = np.linalg.norm(coordinates[1] - coordinates[0], ord=2)
 
                     # length of circular arc outside of the billiard table
-                    length_gamma = np.abs(self.mu * (phif - phii))
+                    length_gamma = np.abs(self.mu * phi_delta)
 
                     # the action action
-                    G = - l1 - length_gamma + S
+                    G = - l1 - length_gamma + 1/self.mu*S
                 else:
                     G = None
             else:

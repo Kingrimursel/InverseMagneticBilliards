@@ -36,7 +36,6 @@ def train_model(model,
     train_loader = DataLoader(
         train_dataset, batch_size=batch_size, shuffle=True, pin_memory=True)
 
-    # TODO: set shuffle to true again
     validation_loader = DataLoader(
         validation_dataset, batch_size=batch_size, shuffle=True, pin_memory=True)
 

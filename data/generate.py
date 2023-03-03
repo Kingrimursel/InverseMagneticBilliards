@@ -30,7 +30,6 @@ def generate_dataset(a, b, mu, n_samples, filename, cs="Birkhoff", type="ReturnM
         thetas = np.random.uniform(low=eps, high=np.pi-eps, size=n_samples)
 
         # actually calculate action
-        # TODO: plot me, to see whether it works
         action = Action(a, b, mu, mode=mode, cs=cs)
 
         phi0s = []

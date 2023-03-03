@@ -122,7 +122,6 @@ class Orbit:
         raise NotImplementedError
 
     def plot(self, img_path=None):
-        print(self.mode)
         fig, ax = plt.subplots()
 
         ax.add_patch(self.table.get_patch(fill="white"))
@@ -224,9 +223,10 @@ class ReturnMap:
 
         ax.plot(*self.table.polygon.exterior.xy)
 
-        if circle is not None:
+        if center is not None:
             ax.plot(*circle.exterior.xy)
             ax.scatter(coordinates[:, 0], coordinates[:, 1])
+            ax.scatter(*center)
 
         for i, (xi, yi) in enumerate(zip(coordinates[:, 0], coordinates[:, 1])):
             plt.annotate(f'{i}', xy=(xi, yi), xytext=(1.2*xi, 1.2*yi))

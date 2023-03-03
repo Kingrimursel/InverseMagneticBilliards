@@ -79,6 +79,7 @@ class Table:
             phi (float): the polar angle
         """
 
+        # res =  np.mod(np.arctan2(point[1]/self.b, point[0]/self.a), 2*np.pi)
         return get_polar_angle(self.a, p)
 
     def get_patch(self, fill=None):
@@ -108,13 +109,12 @@ class Table:
             sol = intersection.geoms
 
             intersections = [list(list(sol[0].coords)[0]),
-                            list(list(sol[1].coords)[0])]
+                             list(list(sol[1].coords)[0])]
 
             idx_reenter_point = np.argmax(
                 np.sum((intersections - exit_point)**2, axis=1))
             reenter_point = intersections[idx_reenter_point]
         else:
             reenter_point = [None, None]
-        
 
         return reenter_point
