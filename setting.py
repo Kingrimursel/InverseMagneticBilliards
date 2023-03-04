@@ -94,7 +94,7 @@ class Table:
     def get_polygon(self):
         return self.polygon
 
-    def get_reenter_point(self, table, mu, center, exit_point):
+    def get_reenter_point(self, mu, center, exit_point):
         """ Get the point where the particle reenters the table after a bounce
 
         Args:
@@ -103,7 +103,8 @@ class Table:
         """
 
         circle = Point(center).buffer(mu)
-        intersection = table.polygon.exterior.intersection(circle.exterior)
+        intersection = self.polygon.exterior.intersection(circle.exterior)
+
 
         if not intersection.is_empty:
             sol = intersection.geoms

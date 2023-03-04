@@ -36,7 +36,6 @@ except FileNotFoundError:
     device = "cpu"
 
 
-
 BASEDIR = os.path.dirname(__file__)
 DATADIR = os.path.join(BASEDIR, "data/raw")
 MODELDIR = os.path.join(BASEDIR, "output/models")
@@ -45,3 +44,4 @@ GRAPHICSDIR = os.path.join(BASEDIR, "output/graphics")
 TODAY = datetime.today().strftime("%Y-%m-%d")
 
 RES_TABLE = 1e3
+RES_LCIRC = 1e2

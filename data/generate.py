@@ -26,6 +26,7 @@ def generate_dataset(a, b, mu, n_samples, filename, cs="Birkhoff", type="ReturnM
         print(f"GENERATING DATASET OF SIZE {n_samples}...")
 
         # initialize grid of angles
+        # TODO: why sample uniformly at random and not just uniformly using e.g. linspace?
         phis = np.random.uniform(low=0, high=2*np.pi, size=n_samples)
         thetas = np.random.uniform(low=eps, high=np.pi-eps, size=n_samples)
 

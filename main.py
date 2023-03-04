@@ -40,7 +40,7 @@ if __name__ == "__main__":
             a,
             b,
             mu,
-            n_epochs=1000,
+            n_epochs=300,
             dir="GeneratingFunction/Custom/inversemagnetic/2023-03-03",
             type=type,
             cs=cs,

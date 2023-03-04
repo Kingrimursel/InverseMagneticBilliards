@@ -3,15 +3,16 @@ import numpy as np
 from tqdm import tqdm
 from matplotlib import pyplot as plt
 from matplotlib.collections import PatchCollection
-from matplotlib.offsetbox import AnchoredText
-from matplotlib.widgets import Slider
 
-from shapely.geometry import LineString, Point
+from shapely.geometry import LineString, Point, LinearRing
+from shapely.ops import nearest_points
 
 from setting import Table
 from util import (rotate_vector,
                   pair,
                   is_left_of)
+
+from conf import RES_LCIRC
 
 
 class Orbit:
@@ -121,8 +122,89 @@ class Orbit:
 
         raise NotImplementedError
 
+    def get_exit_points(self):
+        """Get the exit points and the corresponding Larmor centers of an orbit given its reenter points
+
+        Returns:
+            np.array, np.array: The exit points and the centers
+        """
+
+        # get reenter points and append the first one to the end because of periodicity
+        p2s = self.table.boundary(self.phi.detach()).numpy()
+        p2s = np.vstack([p2s, p2s[0]])
+
+        centers = []
+        p1s = []
+
+        # want to find the exit point for all exit points
+        for i, p2 in enumerate(p2s):
+            # initial point
+            p0 = p2s[i-1]
+
+            # skip first point
+            if i == 0:
+                continue
+
+            distances_i = []
+            centers_i = []
+            p1s_i = []
+
+            # all vertices of a circle with radius mu around the reenter point are candidates for the larmor center
+            vertices = Point(p2).buffer(self.mu).exterior.coords
+
+            # loop over all vertices, checking which corresponding larmor circle comes closest to the real one
+            for vertex in vertices:
+                vertex = np.array(vertex)
+
+                # get larmor circle
+                # TODO: implement base class get_other_point and then implement get_reenter_point using that
+                # TODO: controll resolution
+                lcirc = Point(vertex).buffer(self.mu, resolution=RES_LCIRC)
+
+                # obtain exit point corresponding to the given reenter point and larmor circle
+                p1 = self.table.get_reenter_point(self.mu, vertex, p2)
+
+                # if trajectory does not twist properly, continue. Also there could be problems with polygonial approximation
+                if p1[0] is None or not is_left_of(p1-p0, vertex-p0):
+                    distances_i.append(np.inf)
+                    centers_i.append([None, None])
+                    p1s_i.append([None, None])
+                    continue
+
+                # get two closes vertices of larmor circle to exit point
+                lcirc_coords = np.array(lcirc.exterior.coords)[:-1]
+                distances_vertices = np.array(
+                    [Point(p1).distance(Point(p)) for p in lcirc_coords])
+                closest_vertices = lcirc_coords[np.argpartition(
+                    distances_vertices, 1)[0:2]]
+
+                # approximate the larmor circle's tangent at the exit point
+                v = closest_vertices[0] - closest_vertices[1]
+                v = v/np.linalg.norm(v)
+
+                # define the chord that goes through the exit point and is parallel to the approximated tangent
+                factor = 6*max(self.table.a, self.table.b)
+                chord = LineString([tuple(closest_vertices[0] - factor*v),
+                                   tuple(closest_vertices[0] + factor*v)])
+
+                # calculate distance between chord and previous reenter point
+                dist_chord = chord.distance(Point(p0))
+
+                # only consider the vertex if the map twists correctly
+                distances_i.append(dist_chord)
+                centers_i.append(vertex)
+                p1s_i.append(p1)
+
+            # find the best approximation
+            idx = np.argmin(distances_i)
+            centers.append(centers_i[idx])
+            p1s.append(p1s_i[idx])
+
+        return np.array(p1s), np.array(centers)
+
     def plot(self, img_path=None):
         fig, ax = plt.subplots()
+        ax.set_aspect("equal")
 
         ax.add_patch(self.table.get_patch(fill="white"))
         ax.set_xlim([- max(self.table.a, self.table.b) - 0.5,
@@ -131,19 +213,38 @@ class Orbit:
                     max(self.table.a, self.table.b) + 0.5])
 
         points0 = self.table.boundary(self.phi0.detach())
-        points = self.table.boundary(self.phi.detach())
-        ax.scatter(points[:, 0], points[:, 1])
-        ax.scatter(points0[:, 0], points0[:, 1])
+        points2 = self.table.boundary(self.phi.detach())
+        ax.scatter(points2[:, 0], points2[:, 1], c="navy")
+        # ax.scatter(points0[:, 0], points0[:, 1])
 
-        # plot the chords
-        xx = np.hstack([points[:, 0], points[0, 0]])
-        yy = np.hstack([points[:, 1], points[0, 1]])
-
-        ax.plot(xx, yy, c="black")
-        ax.set_aspect("equal")
-
-        for i, (xi, yi) in enumerate(zip(xx[:-1], yy[:-1])):
+        # annotate the points
+        for i, (xi, yi) in enumerate(zip(points2[:, 0], points2[:, 1])):
             plt.annotate(f'{i + 1}', xy=(xi, yi), xytext=(1.2*xi, 1.2*yi))
+
+        if self.mode == "classic":
+            # plot the chords
+            xx = np.hstack([points2[:, 0], points2[0, 0]])
+            yy = np.hstack([points2[:, 1], points2[0, 1]])
+
+            ax.plot(xx, yy, c="black")
+
+        elif self.mode == "inversemagnetic":
+            points1, centers = self.get_exit_points()
+
+            ax.scatter(points1[:, 0], points1[:, 1], c="navy")
+            ax.scatter(centers[:, 0], centers[:, 1], c="magenta")
+
+            # plot armor circles
+            circles = PatchCollection([plt.Circle(tuple(center), self.mu, alpha=1,
+                                                  edgecolor="navy", zorder=0) for center in centers])
+
+            circles.set_facecolor([0, 0, 0, 0])
+            circles.set_edgecolor([0, 0, 0.5, 1])
+            circles.set_zorder(0)
+            ax.add_collection(circles)
+
+            ax.plot(np.vstack([points2[:, 0], points1[:, 0]]),
+                    np.vstack([points2[:, 1], points1[:, 1]]), c="navy")
 
         if img_path is not None:
             plt.savefig(img_path)
@@ -194,8 +295,7 @@ class ReturnMap:
                 center = self.get_larmor_center(p0, p1)
 
                 # get reenter point
-                p2 = self.table.get_reenter_point(
-                    self.table, self.mu, center, p1)
+                p2 = self.table.get_reenter_point(self.mu, center, p1)
 
                 # TODO: vielleicht eine gemeinsame funktion um die intersection points zu bekommen, und die dann für get_reenter_point and get_parameters nutzen
                 # TODO: function for larmor circle? Or even a class?
