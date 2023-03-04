@@ -11,9 +11,10 @@ if __name__ == "__main__":
     # magnetic properties
     mu = 1/5
 
-    cs = "Custom"
+    cs = "custom"
     mode = "inversemagnetic"
-    type = "GeneratingFunction"
+    type = "generatingfunction"
+    subdir = "circle"
 
     exec = "minimize"
 
@@ -24,12 +25,17 @@ if __name__ == "__main__":
                          100000,
                          "train100k.npy",
                          cs=cs,
+                         subdir=subdir,
                          mode=mode,
                          type=type)
     elif exec == "train":
-        training_procedure(num_epochs=100,
+        training_procedure(a=a,
+                           b=b,
+                           mu=mu,
+                           num_epochs=100,
                            type=type,
                            cs=cs,
+                           subdir=subdir,
                            mode=mode,
                            train_dataset="train100k.npy",
                            save=True,
@@ -40,8 +46,8 @@ if __name__ == "__main__":
             a,
             b,
             mu,
-            n_epochs=300,
-            dir="GeneratingFunction/Custom/inversemagnetic/2023-03-03",
+            n_epochs=1000,
+            dir="generatingfunction/custom/inversemagnetic/circle/2023-03-03",
             type=type,
             cs=cs,
             mode=mode)

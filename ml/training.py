@@ -4,7 +4,7 @@ from pathlib import Path
 from torch.utils.data import DataLoader
 from tqdm import tqdm
 
-from util import batch_jacobian, batch_hessian
+from util import batch_hessian, mkdir
 from dynamics import Orbit
 from physics import DiscreteAction
 
@@ -118,8 +118,7 @@ def train_model(model,
 
         # save model after each epoch
         if dir:
-            Path(os.path.join(dir, "epochs", str(epoch+1))
-                 ).mkdir(parents=True, exist_ok=True)
+            mkdir(os.path.join(dir, "epochs", str(epoch+1)))
 
             torch.save({
                 "model_state_dict": model.state_dict(),

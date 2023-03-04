@@ -12,23 +12,27 @@ from physics import DiscreteAction
 from dynamics import Orbit
 from ml.training import train_model
 from ml.models import ReLuModel
-from util import batch_jacobian, batch_hessian, angle_between, sigmoid_scaled
+from util import batch_jacobian, batch_hessian, angle_between, sigmoid_scaled, generate_readme, mkdir
 from conf import device, MODELDIR, DATADIR, TODAY, GRAPHICSDIR
 
 
 class Training:
     def __init__(self,
                  num_epochs=100,
-                 cs="Custom",
+                 cs="custom",
                  type="ReturnMap",
                  mode="classic",
                  train_dataset="train50k.npy",
                  batch_size=128,
+                 subdir="",
                  save=True,
-                 alpha=1e-3):
+                 alpha=1e-3,
+                 *args,
+                 **kwargs):
 
         self.num_epochs = num_epochs
         self.cs = cs
+        self.subdir = subdir
         self.type = type
         self.mode = mode
         self.train_dataset = train_dataset
@@ -41,16 +45,17 @@ class Training:
         self.hess_train_loss = 0.
         self.validation_loss = 0.
 
-    def train(self):
-        # relevant directories
-        data_dir = os.path.join(DATADIR, self.type, self.cs, self.mode)
+        self.data_dir = os.path.join(
+            DATADIR, self.type, self.cs, self.mode, self.subdir)
 
         if self.save:
-            model_dir = os.path.join(MODELDIR, self.type, self.cs, self.mode, TODAY)
-            Path(model_dir).mkdir(parents=True, exist_ok=True)
+            self.model_dir = os.path.join(
+                MODELDIR, self.type, self.cs, self.mode, subdir, TODAY)
+            mkdir(self.model_dir)
         else:
-            model_dir = None
+            self.model_dir = None
 
+    def train(self):
         if self.type == "ReturnMap":
             Dataset = ReturnMapDataset
             input_dim = 2
@@ -59,7 +64,7 @@ class Training:
             Dataset = ImplicitUDataset
             input_dim = 2
             output_dim = 1
-        elif self.type == "GeneratingFunction":
+        elif self.type == "generatingfunction":
             Dataset = GeneratingFunctionDataset
             input_dim = 2
             output_dim = 1
@@ -67,8 +72,10 @@ class Training:
             return
 
         # datasets
-        train_dataset = Dataset(os.path.join(data_dir, self.train_dataset))
-        validation_dataset = Dataset(os.path.join(data_dir, "validate10k.npy"))
+        train_dataset = Dataset(os.path.join(
+            self.data_dir, self.train_dataset))
+        validation_dataset = Dataset(
+            os.path.join(self.data_dir, "validate10k.npy"))
 
         # model
         model = ReLuModel(input_dim=input_dim, output_dim=output_dim)
@@ -79,7 +86,7 @@ class Training:
                                                                              validation_dataset,
                                                                              torch.nn.MSELoss(),
                                                                              self.num_epochs,
-                                                                             dir=model_dir,
+                                                                             dir=self.model_dir,
                                                                              alpha=self.alpha,
                                                                              batch_size=self.batch_size,
                                                                              device=device)
@@ -90,10 +97,9 @@ class Training:
         self.hess_train_loss = hess_train_loss
 
     def plot_loss(self):
-        graphics_dir = os.path.join(GRAPHICSDIR, self.type, self.cs, TODAY)
-        # graphics_dir = os.path.join(
-        #    GRAPHICSDIR, self.type, self.cs, self.today)
-        Path(graphics_dir).mkdir(parents=True, exist_ok=True)
+        graphics_dir = os.path.join(
+            GRAPHICSDIR, self.type, self.cs, self.subdir, TODAY)
+        mkdir(graphics_dir)
         graphic_filename = os.path.join(graphics_dir, "loss.png")
 
         fig = plt.figure()
@@ -107,6 +113,10 @@ class Training:
         plt.savefig(graphic_filename)
 
         plt.show()
+
+    def generate_readme(self, a, b, mu, num_epochs, batch_size):
+        generate_readme(
+            self.model_dir, f"a={a},\nb={b},\nmu={mu}\nnum_epochs={num_epochs}\nbatch_size={batch_size}")
 
 
 class Minimizer:
@@ -132,7 +142,7 @@ class Minimizer:
         for epoch in (pb := tqdm(range(self.n_epochs))):
             self.optimizer.zero_grad()
 
-            pb.set_postfix({"Loss": grad_loss.item()}) 
+            pb.set_postfix({"Loss": grad_loss.item()})
 
             # calculate the gradient loss
             grad_loss = torch.linalg.norm(
@@ -182,7 +192,7 @@ class Minimizer:
 
 
 class Diagnostics:
-    def __init__(self, orbit=None, cs="Custom", type="ReturnMap", mode="classic", *args, **kwargs):
+    def __init__(self, orbit=None, cs="custom", type="ReturnMap", mode="classic", *args, **kwargs):
         self.orbit = orbit
 
         self.cs = cs

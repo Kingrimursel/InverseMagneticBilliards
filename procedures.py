@@ -7,15 +7,16 @@ from dynamics import Orbit
 
 from helper import Training, Minimizer, Diagnostics
 from conf import MODELDIR, GRAPHICSDIR, TODAY
+from util import mkdir
 
 
 def training_procedure(**kwargs):
     training = Training(**kwargs)
     training.train()
     training.plot_loss()
+    training.generate_readme(kwargs.get("a"), kwargs.get("b"), kwargs.get("mu"), kwargs.get("num_epochs"), kwargs.get("batch_size"))
 
-
-def minimization_procedure(a, b, mu, n_epochs=100, dir=None, type="GeneratingFunction", cs="Custom", mode="classic"):
+def minimization_procedure(a, b, mu, n_epochs=100, dir=None, type="generatingfunction", cs="custom", mode="classic"):
     # load model
     filename = os.path.join(MODELDIR, dir, "model.pth")
 
@@ -53,8 +54,7 @@ def minimization_procedure(a, b, mu, n_epochs=100, dir=None, type="GeneratingFun
         f"Expected Frequency: (m, n) = {frequency}. Observed Frequency: (m, n) = {observed_frequency}")
 
     # plot the orbit
-    Path(os.path.join(GRAPHICSDIR, type, cs, TODAY)).mkdir(
-        parents=True, exist_ok=True)
+    mkdir(os.path.join(GRAPHICSDIR, type, cs, TODAY))
     img_path = os.path.join(GRAPHICSDIR, type, cs, TODAY, "orbit.png")
     orbit.plot(img_path=img_path)
 

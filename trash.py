@@ -207,7 +207,7 @@ class Trajectory:
 
                 if self.cs == "Birkhoff":
                     coordinates.append([s1, u1])
-                elif self.cs == "Custom":
+                elif self.cs == "custom":
                     coordinates.append([phi1, theta1])
                 else:
                     return

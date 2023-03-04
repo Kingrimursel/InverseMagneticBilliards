@@ -1,7 +1,8 @@
+import os
 import torch
 
 import numpy as np
-import sympy as sp
+from pathlib import Path
 from shapely.geometry import Point
 from shapely import affinity
 
@@ -214,7 +215,6 @@ def is_left_of(v, p):
         bool: True if p is on the left of v, False otherwise
     """
 
-
     return np.cross(v, p) > 0
 
 
@@ -239,3 +239,19 @@ def solve_polynomial(a, b, c, d, e):
     roots = np.real(roots[np.isreal(roots)])
 
     return roots
+
+
+def generate_readme(path, content):
+    """Generate a readme file with the given content
+
+    Args:
+        path (str): path to the folder where the readme file will be generated
+        content (str): content of the readme file
+    """
+
+    with open(os.path.join(path, "README.md"), "w") as f:
+        f.write(content)
+
+
+def mkdir(dir):
+    Path(dir).mkdir(parents=True, exist_ok=True)
