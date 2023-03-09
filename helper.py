@@ -77,7 +77,7 @@ class Training:
             self.data_dir, self.train_dataset))
         validation_dataset = Dataset(
             os.path.join(self.data_dir, "validate10k.npy"))
-
+        
         # model
         model = ReLuModel(input_dim=input_dim, output_dim=output_dim)
 
@@ -231,12 +231,12 @@ class Diagnostics:
             einfallswinkel, ausfallswinkel = self.reflection_angle(unit=unit)
 
             error = torch.abs(
-                100*(einfallswinkel - ausfallswinkel)/einfallswinkel)
+                100*(einfallswinkel - ausfallswinkel)/torch.max(einfallswinkel, ausfallswinkel))
         elif self.mode == "inversemagnetic":
             error = torch.tensor([])
 
-        print(f"Angles of Incidence: {list(einfallswinkel)}")
-        print(f"Angles of Reflection: {list(ausfallswinkel)}")
+        print(f"Angles of Incidence: {einfallswinkel.tolist()}")
+        print(f"Angles of Reflection: {ausfallswinkel.tolist()}")
 
         fig = plt.figure()
         fig.suptitle("Error in Reflection Law")

@@ -5,7 +5,7 @@ from data.generate import generate_dataset
 
 if __name__ == "__main__":
     # table properties
-    a = 2
+    a = 1
     b = 1
 
     # magnetic properties
@@ -16,7 +16,7 @@ if __name__ == "__main__":
     type = "generatingfunction"
     subdir = "ellipse"
     
-    exec = "generate"
+    exec = "minimize"
 
     if exec == "generate":
         generate_dataset(a,
@@ -39,13 +39,13 @@ if __name__ == "__main__":
                            mode=mode,
                            train_dataset="train100k.npy",
                            save=True,
-                           batch_size=1024,
+                           batch_size=256,
                            alpha=1e0)
     elif exec == "minimize":
         minimization_procedure(
             a,
             b,
             mu,
-            n_epochs=3000,
-            dir="generatingfunction/custom/classic/ellipse/2023-03-08"
+            n_epochs=2000,
+            dir="generatingfunction/custom/inversemagnetic/circle/2023-03-03"
         )

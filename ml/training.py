@@ -49,7 +49,7 @@ def train_model(model,
 
         pbar.set_postfix({'Training Loss': train_loss,
                          'Validation Loss': validation_loss})
-
+        
         # Train the model for one epoch
         for inputs, targets in train_loader:
 

@@ -32,7 +32,7 @@ def minimization_procedure(a, b, mu, n_epochs=100, dir=None):
         torch.load(filename)["model_state_dict"])
 
     # number of applications of return map
-    frequency = (1, 3)
+    frequency = (1, 5)
 
     # initialize an orbit
     orbit = Orbit(a=a,
