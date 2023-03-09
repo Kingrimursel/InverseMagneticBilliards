@@ -8,8 +8,9 @@ from datetime import datetime
 from matplotlib import pyplot as plt
 
 from data.datasets import ReturnMapDataset, ImplicitUDataset, GeneratingFunctionDataset
+from setting import Table
 from physics import DiscreteAction
-from dynamics import Orbit
+from dynamics import Orbit, ReturnMap
 from ml.training import train_model
 from ml.models import ReLuModel
 from util import batch_jacobian, batch_hessian, angle_between, sigmoid_scaled, generate_readme, mkdir
@@ -120,7 +121,10 @@ class Training:
 
 
 class Minimizer:
-    def __init__(self, orbit, action_fn, n_epochs=50, frequency=(), *args, **kwargs):
+    def __init__(self, a, b, orbit, action_fn, n_epochs=50, frequency=(), *args, **kwargs):
+        self.a = a
+        self.b = b
+        self.table = Table(a=a, b=b)
         self.orbit = orbit
         self.n_epochs = n_epochs
         self.optimizer = torch.optim.Adam([orbit.phi], lr=1e-3)
@@ -128,14 +132,13 @@ class Minimizer:
         self.frequency = frequency
         self.m, self.n = frequency
 
-        self.discrete_action = DiscreteAction(action_fn, orbit=orbit, **kwargs)
+        self.discrete_action = DiscreteAction(action_fn, self.table, **kwargs)
 
         self.grad_losses = []
         self.m_losses = []
 
     def minimize(self):
         grad_losses = []
-        m_losses = []
 
         grad_loss = torch.zeros(1)
 
@@ -146,18 +149,7 @@ class Minimizer:
 
             # calculate the gradient loss
             grad_loss = torch.linalg.norm(
-                batch_jacobian(self.discrete_action, self.orbit.phi))
-            # print(batch_jacobian(self.discrete_action, self.orbit.phi).shape)
-            # grad_loss = batch_jacobian(self.discrete_action, self.orbit.phi).sum()
-
-            # a loss that should enforce the correct frequency?!
-            if len(self.frequency) != 0:
-                phi_centered = self.orbit.phi - self.orbit.phi[0]
-                diff = phi_centered - torch.roll(phi_centered, -1)
-                m_approx = torch.sum(sigmoid_scaled(diff, alpha=10))
-                m_loss = (m_approx - self.m)**2
-            else:
-                m_loss = torch.tensor([0], requires_grad=True)
+                batch_jacobian(self.discrete_action, self.orbit.phi), ord=2)
 
             total_loss = grad_loss
 
@@ -171,13 +163,11 @@ class Minimizer:
 
             # save losses
             grad_losses.append(grad_loss.item())
-            m_losses.append(m_loss)
 
             # log the result
             # print('Epoch: {}, Loss: {:.4f}'.format(epoch+1, grad_loss))
 
         self.grad_losses = torch.tensor(grad_losses)
-        self.m_losses = torch.tensor(m_losses)
 
     def plot(self):
         fig = plt.figure()
@@ -185,6 +175,7 @@ class Minimizer:
         plt.xlabel("epoch")
         plt.ylabel("loss")
         plt.plot(self.grad_losses)
+        plt.yscale("log")
         # if len(self.m_losses) > 0:
         #    plt.plot(self.m_losses)
 
@@ -192,19 +183,32 @@ class Minimizer:
 
 
 class Diagnostics:
-    def __init__(self, orbit=None, cs="custom", type="ReturnMap", mode="classic", *args, **kwargs):
+    def __init__(self, a, b, mu, orbit=None, cs="custom", type="ReturnMap", mode="classic", subdir="", *args, **kwargs):
         self.orbit = orbit
 
         self.cs = cs
         self.type = type
         self.mode = mode
+        self.subdir = subdir
+        self.a = a
+        self.b = b
+        self.mu = mu
+
+        self.table = Table(a=self.a, b=self.b)
 
     def reflection_angle(self, unit="rad"):
         us = self.orbit.get_u()
         tangents = self.orbit.table.tangent(self.orbit.phi).T
+        tangents = torch.roll(tangents, -1, dims=0)
+
+        print(tangents)
 
         einfallswinkel = angle_between(us, tangents)
-        ausfallswinkel = angle_between(torch.roll(tangents, -1, dims=0), us)
+        ausfallswinkel = angle_between(tangents, torch.roll(us, -1, dims=0))
+
+        einfallswinkel = torch.roll(einfallswinkel, 1, dims=0)
+        ausfallswinkel = torch.roll(ausfallswinkel, 1, dims=0)
+        # ausfallswinkel = torch.roll(ausfallswinkel, 1, dims=0)
 
         if unit == "deg":
             einfallswinkel = einfallswinkel/2/np.pi*360
@@ -213,16 +217,20 @@ class Diagnostics:
         return einfallswinkel, ausfallswinkel
 
     def reflection(self, unit="deg"):
-        einfallswinkel, ausfallswinkel = self.reflection_angle(unit=unit)
-        error = torch.abs(100*(einfallswinkel - ausfallswinkel)/einfallswinkel)
+        if self.mode == "classic":
+            einfallswinkel, ausfallswinkel = self.reflection_angle(unit=unit)
+            print(einfallswinkel)
+            print(ausfallswinkel)
+            error = torch.abs(
+                100*(einfallswinkel - ausfallswinkel)/einfallswinkel)
+        elif self.mode == "inversemagnetic":
+            error = torch.tensor([])
 
         fig = plt.figure()
         fig.suptitle("Error in Reflection Law")
         plt.xlabel("Point")
         plt.ylabel("Error [%]")
-        # plt.errorbar(np.arange(len(error)), error.detach(), fmt=".")
         plt.plot(error.detach())
-        # plt.yscale("log")
 
         plt.show()
 
@@ -237,14 +245,11 @@ class Diagnostics:
 
         return (m, n)
 
-    def derivative(self, a, b, dir):
+    def derivative(self, dir):
         """Analyze the networks gradients
 
         Args:
-            a (int): length of first semi axis
-            b (int): length of second semi axis
             dir (string): directory where trained model is stored
-            ord (int, optional): order of derivative. 1 corresponds to the Jacobian, 2 to the Hessian. Defaults to 1.
         """
         model_dir = os.path.join(MODELDIR, dir)
 
@@ -252,7 +257,8 @@ class Diagnostics:
 
         model = ReLuModel(input_dim=2, output_dim=1)
 
-        data_dir = os.path.join(DATADIR, self.type, self.cs)
+        data_dir = os.path.join(
+            DATADIR, self.type, self.cs, self.mode, self.subdir)
 
         validation_dataset = GeneratingFunctionDataset(
             os.path.join(data_dir, "validate10k.npy"))
@@ -260,61 +266,58 @@ class Diagnostics:
         validation_loader = DataLoader(
             validation_dataset, batch_size=1024, shuffle=True, pin_memory=True)
 
-        deriv_diff_losses = []
-        deriv_emp_losses = []
-        deriv_ex_losses = []
+        S = DiscreteAction(None, self.table, exact=True)
+        Shat = DiscreteAction(model.model, self.table, exact=False)
 
-        for epoch in range(1, train_settings["epochs"] + 1):
-            epoch_deriv_diff_loss = 0.0
-            epoch_deriv_emp_loss = 0.0
-            epoch_deriv_ex_loss = 0.0
+        dS_losses = []
+        dShat_losses = []
+        dhatS_losses = []
+
+        for epoch in (pb := tqdm(range(1, train_settings["epochs"] + 1))):
+            epoch_dS_loss = 0.0
+            epoch_dShat_loss = 0.0
+            epoch_dhatS_loss = 0.0
 
             for inputs, targets in validation_loader:
                 epoch_settings = torch.load(os.path.join(
                     model_dir, "epochs", str(epoch), "model.pth"))
 
+                # load epoch state
                 model.load_state_dict(epoch_settings["model_state_dict"])
 
-                # calculate empirical jacobian
-                deriv_emp = torch.squeeze(batch_hessian(model.model, inputs))
+                # calculate exact empirical jacobian
+                dShat = torch.squeeze(batch_hessian(Shat, inputs))
 
                 # calculate exact jacobian
-                orbit = Orbit(a, b)
-                orbit.set_phi(inputs)
+                dS = torch.squeeze(batch_hessian(S, inputs))
 
-                discrete_action = DiscreteAction(None, orbit, exact=True)
-                deriv_ex = torch.squeeze(
-                    batch_hessian(discrete_action, inputs))
+                # calculate approximation of exact jacobian
+                dhatS = torch.squeeze(batch_hessian(S, inputs, exact=False))
 
                 # compute jacobian losses
-                new_deriv_diff_loss = (
-                    deriv_emp - deriv_ex).pow(2).mean().item()
-
-                new_deriv_ex_loss = deriv_ex.pow(2).mean().item()
-                new_deriv_emp_loss = deriv_emp.pow(2).mean().item()
+                batch_dS_loss = dS.pow(2).mean().item()
+                batch_dShat_loss = dShat.pow(2).mean().item()
+                batch_dhatS_loss = dhatS.pow(2).mean().item()
 
                 # save epoch loss
-                epoch_deriv_diff_loss += new_deriv_diff_loss
-                epoch_deriv_emp_loss += new_deriv_emp_loss
-                epoch_deriv_ex_loss += new_deriv_ex_loss
+                epoch_dShat_loss += batch_dShat_loss
+                epoch_dS_loss += batch_dS_loss
+                epoch_dhatS_loss += batch_dhatS_loss
 
-            deriv_diff_loss = epoch_deriv_diff_loss / len(validation_dataset)
-            deriv_emp_loss = epoch_deriv_emp_loss / len(validation_dataset)
-            deriv_ex_loss = epoch_deriv_ex_loss / len(validation_dataset)
-            deriv_diff_losses.append(deriv_diff_loss)
-            deriv_emp_losses.append(deriv_emp_loss)
-            deriv_ex_losses.append(deriv_ex_loss)
+            dS_losses.append(epoch_dS_loss)
+            dShat_losses.append(epoch_dShat_loss)
+            dhatS_losses.append(epoch_dhatS_loss)
 
-            print("Epoch: {}. Diff Loss: {:.4f}. Emp Loss:{:.4f}. Ex Loss: {:.4f}".format(
-                epoch, deriv_diff_loss, deriv_emp_loss, deriv_ex_loss))
+            pb.set_postfix({'dS loss': epoch_dS_loss,
+                            'dS_hat loss': epoch_dShat_loss,
+                            'dhatS loss': epoch_dhatS_loss})
 
         fig = plt.figure()
         fig.suptitle("Hessian Errors")
         plt.xlabel("Epoch")
         plt.ylabel("Error")
-        plt.plot(deriv_diff_losses, label="difference")
-        plt.plot(deriv_emp_losses, label="empirical")
-        plt.plot(deriv_ex_losses, label="exact")
+        plt.plot(dS_losses, label="dG")
+        plt.plot(dShat_losses, label="dG_hat")
         plt.legend()
 
         plt.show()

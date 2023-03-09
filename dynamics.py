@@ -75,7 +75,7 @@ class Orbit:
 
     def get_u(self):
         phi = self.get_phi()
-        self.u = self.points(x=phi) - self.points(x=torch.roll(phi, -1))
+        self.u = self.points(x=torch.roll(phi, -1)) - self.points(x=phi)
 
         return self.u
 
@@ -215,11 +215,18 @@ class Orbit:
         points0 = self.table.boundary(self.phi0.detach())
         points2 = self.table.boundary(self.phi.detach())
         ax.scatter(points2[:, 0], points2[:, 1], c="navy")
-        # ax.scatter(points0[:, 0], points0[:, 1])
+        ax.scatter(points0[:, 0], points0[:, 1], c="green")
 
         # annotate the points
         for i, (xi, yi) in enumerate(zip(points2[:, 0], points2[:, 1])):
             plt.annotate(f'{i + 1}', xy=(xi, yi), xytext=(1.2*xi, 1.2*yi))
+
+        # plot tangents
+        for point in points2:
+            phi = self.table.get_polar_angle(point)
+            v = self.table.tangent(phi)
+            chord = self.get_chord(point, v)
+            ax.plot(*chord.xy, c="red")
 
         if self.mode == "classic":
             # plot the chords
@@ -234,7 +241,7 @@ class Orbit:
             ax.scatter(points1[:, 0], points1[:, 1], c="navy")
             ax.scatter(centers[:, 0], centers[:, 1], c="magenta")
 
-            # plot armor circles
+            # plot larmor circles
             circles = PatchCollection([plt.Circle(tuple(center), self.mu, alpha=1,
                                                   edgecolor="navy", zorder=0) for center in centers])
 
@@ -290,7 +297,6 @@ class ReturnMap:
             p1 = self.table.get_collision(chord)
 
             # get larmor center
-            # FIXME: this sometimes returns the wrong center!!
             if p1[0] is not None:
                 center = self.get_larmor_center(p0, p1)
 
@@ -316,16 +322,15 @@ class ReturnMap:
         # apply the return
         coordinates, center = self.__call__(phi0, theta0)
 
-        circle = Point(center).buffer(self.mu)
-
         fig, ax = plt.subplots()
         ax.set_aspect("equal")
 
         ax.plot(*self.table.polygon.exterior.xy)
+        ax.scatter(coordinates[:, 0], coordinates[:, 1])
 
         if center is not None:
+            circle = Point(center).buffer(self.mu)
             ax.plot(*circle.exterior.xy)
-            ax.scatter(coordinates[:, 0], coordinates[:, 1])
             ax.scatter(*center)
 
         for i, (xi, yi) in enumerate(zip(coordinates[:, 0], coordinates[:, 1])):

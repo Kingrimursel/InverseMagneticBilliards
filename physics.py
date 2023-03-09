@@ -7,19 +7,24 @@ from util import pair, intersection_parameters, area_overlap
 
 
 class DiscreteAction:
-    def __init__(self, action_fn, orbit, exact=False, *args, **kwargs):
+    def __init__(self, action_fn, table, exact=False, *args, **kwargs):
         self.action_fn = action_fn
-        self.orbit = orbit
+        self.table = table
         self.exact = exact
 
-    def __call__(self, x):
+    def __call__(self, phis):
         if self.exact:
-            points = self.orbit.points(x=x)
-            points2 = torch.roll(points, 1, 0)
-            dists = torch.norm(points - points2, dim=1)
-            action = torch.sum(dists)
+            points = self.table.boundary(phis)
+            if torch.is_tensor(points):
+                points2 = torch.roll(points, 1, 0)
+                dists = torch.norm(points - points2, dim=1)
+                action = torch.sum(dists)
+            else:
+                points2 = np.roll(points, 1, 0)
+                dists = np.linalg.norm(points - points2, axis=1)
+                action = np.sum(dists)
         else:
-            action = torch.sum(self.action_fn(pair(x)))
+            action = torch.sum(self.action_fn(pair(phis)))
         return action
 
 
@@ -37,7 +42,6 @@ class Action:
                                    frequency=(1, 1), mode=self.mode, **self.kwargs)
 
     def __call__(self, phi, theta):
-
         coordinates, center = self.returnmap(phi, theta)
 
         if self.mode == "classic":
@@ -56,16 +60,17 @@ class Action:
                 # Area inside the circular arc but outside of the billiard table
                 S = np.pi*self.mu**2 - \
                     area_overlap(self.table, self.mu, center)
-                
+
                 assert S > 0
 
                 phii, phif = intersection_parameters(
                     self.table, self.mu, center)
-                
-                phi_delta = phif - phii if phif > phii else (phif + 2*np.pi) - phii
+
+                phi_delta = phif - \
+                    phii if phif > phii else (phif + 2*np.pi) - phii
 
                 assert phi_delta > 0
-                
+
                 if phii is not None:
                     # length of first chord
                     l1 = np.linalg.norm(coordinates[1] - coordinates[0], ord=2)

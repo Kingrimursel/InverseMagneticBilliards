@@ -29,6 +29,13 @@ class Table:
 
         intersection = self.polygon.intersection(linestring)
 
+        # from matplotlib import pyplot as plt
+        # fig, ax = plt.subplots()
+        # ax.plot(*self.polygon.exterior.xy)
+        # ax.plot(*linestring.xy)
+        # ax.set_aspect("equal")
+        # plt.show()
+
         if len(intersection.coords) == 2:
             return np.array(intersection.coords[1])
         else:
@@ -104,7 +111,6 @@ class Table:
 
         circle = Point(center).buffer(mu)
         intersection = self.polygon.exterior.intersection(circle.exterior)
-
 
         if not intersection.is_empty:
             sol = intersection.geoms

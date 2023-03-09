@@ -4,7 +4,7 @@ import torch
 import numpy as np
 from pathlib import Path
 from shapely.geometry import Point
-from shapely import affinity
+import numdifftools as nd
 
 from functorch import jacfwd, jacrev, vmap, hessian
 from scipy.optimize import root_scalar
@@ -86,8 +86,6 @@ def angle_between(v1, v2):
     if torch.is_tensor(v1):
         sp = torch.clip((v1_u*v2_u).sum(axis=1), -1.0, 1.0)
 
-        test = torch.arccos(sp)
-
         return torch.arccos(sp)
     else:
         return np.arccos(np.clip(np.dot(v1_u, v2_u), -1.0, 1.0))
@@ -103,13 +101,21 @@ def pair(x, periodic=True):
     return pairs
 
 
-def batch_hessian(f, input):
-    if input.ndim == 1:
-        hes = hessian(f)(input)
+def batch_hessian(f, input, exact=True):
+    if exact:
+        if input.ndim == 1:
+            hes = hessian(f)(input)
+        else:
+            hes = vmap(hessian(f), in_dims=(0,))(input)
     else:
-        jac = vmap(hessian(f), in_dims=(0,))(input)
+        hes = []
+        for i, inp in enumerate(input):
+            new_hes = nd.Hessian(f)(inp)
+            hes.append(new_hes)
 
-    return jac
+        hes = torch.from_numpy(np.stack(hes))
+
+    return hes
 
 
 def batch_jacobian(f, input):

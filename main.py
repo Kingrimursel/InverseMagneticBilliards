@@ -5,17 +5,17 @@ from data.generate import generate_dataset
 
 if __name__ == "__main__":
     # table properties
-    a = 1
+    a = 2
     b = 1
 
     # magnetic properties
     mu = 1/5
 
     cs = "custom"
-    mode = "inversemagnetic"
+    mode = "classic"
     type = "generatingfunction"
-    subdir = "circle"
-
+    subdir = "ellipse"
+    
     exec = "minimize"
 
     if exec == "generate":
@@ -23,7 +23,7 @@ if __name__ == "__main__":
                          b,
                          mu,
                          10000,
-                         "validate10k.npy",
+                         "vaidate10k.npy",
                          cs=cs,
                          subdir=subdir,
                          mode=mode,
@@ -46,8 +46,6 @@ if __name__ == "__main__":
             a,
             b,
             mu,
-            n_epochs=100,
-            dir="generatingfunction/custom/classic/circle/2023-03-03",
-            type=type,
-            cs=cs,
-            mode=mode)
+            n_epochs=0,
+            dir="generatingfunction/custom/classic/ellipse/2023-03-08"
+        )

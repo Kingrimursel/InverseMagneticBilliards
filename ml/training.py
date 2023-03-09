@@ -5,8 +5,6 @@ from torch.utils.data import DataLoader
 from tqdm import tqdm
 
 from util import batch_hessian, mkdir
-from dynamics import Orbit
-from physics import DiscreteAction
 
 
 def train_model(model,
@@ -35,7 +33,7 @@ def train_model(model,
 
     train_loader = DataLoader(
         train_dataset, batch_size=batch_size, shuffle=True, pin_memory=True)
-
+    
     validation_loader = DataLoader(
         validation_dataset, batch_size=batch_size, shuffle=True, pin_memory=True)
 
