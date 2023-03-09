@@ -202,7 +202,7 @@ class Orbit:
 
         return np.array(p1s), np.array(centers)
 
-    def plot(self, img_path=None):
+    def plot(self, img_path=None, show=True):
         fig, ax = plt.subplots()
         ax.set_aspect("equal")
 
@@ -256,7 +256,10 @@ class Orbit:
         if img_path is not None:
             plt.savefig(img_path)
 
-        plt.show()
+        if show:
+            plt.show()
+
+        return fig, ax
 
 
 class ReturnMap:

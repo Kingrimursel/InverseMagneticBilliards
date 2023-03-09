@@ -52,6 +52,9 @@ def generate_dataset(a, b, mu, n_samples, filename, cs="Birkhoff", type="ReturnM
             phi0, theta0 = angles0[0], angles0[1]
             phi0, phi2, G = action(phi0, theta0)
 
+            #print(phi0*180/np.pi, phi2*180/np.pi, G)
+            #action.returnmap.plot(phi0, theta0)
+
             if phi2 is not None and G is not None:
                 # if i%1000 == 0:
                 #    print(phi0*180/np.pi, phi2*180/np.pi)

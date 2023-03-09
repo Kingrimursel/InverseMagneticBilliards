@@ -21,7 +21,7 @@ class Table:
         self.polygon = affinity.scale(
             Point(0, 0).buffer(1, resolution=RES_TABLE), a, b)
 
-    def get_collision(self, linestring, origin=None):
+    def get_collision(self, linestring):
         """
         Calculates the second intersection point of a straight line parametrized by its anchor p
         and a direction v with the billiard table's boundary.

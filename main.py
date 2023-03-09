@@ -16,7 +16,7 @@ if __name__ == "__main__":
     type = "generatingfunction"
     subdir = "ellipse"
     
-    exec = "minimize"
+    exec = "generate"
 
     if exec == "generate":
         generate_dataset(a,
@@ -46,6 +46,6 @@ if __name__ == "__main__":
             a,
             b,
             mu,
-            n_epochs=0,
+            n_epochs=3000,
             dir="generatingfunction/custom/classic/ellipse/2023-03-08"
         )

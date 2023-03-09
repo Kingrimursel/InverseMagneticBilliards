@@ -84,11 +84,20 @@ def angle_between(v1, v2):
     v1_u = unit_vector(v1)
     v2_u = unit_vector(v2)
     if torch.is_tensor(v1):
-        sp = torch.clip((v1_u*v2_u).sum(axis=1), -1.0, 1.0)
+        if v1_u.ndim > 1:
+            sp = (v1_u*v2_u).sum(axis=1)
+        else:
+            sp = (v1_u*v2_u).sum()
 
-        return torch.arccos(sp)
+        angle = torch.arccos(sp)
+        #cross_product = np.cross(v1_u.detach(), v2_u.detach())
+        #angle[cross_product < 0] = np.pi - angle[cross_product < 0]
+
+        return angle
     else:
+        print("is not inside")
         return np.arccos(np.clip(np.dot(v1_u, v2_u), -1.0, 1.0))
+
 
 
 def pair(x, periodic=True):

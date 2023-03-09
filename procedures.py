@@ -49,7 +49,7 @@ def minimization_procedure(a, b, mu, n_epochs=100, dir=None):
                           G_hat.model,
                           n_epochs=n_epochs,
                           frequency=frequency,
-                          exact=True)
+                          exact=False)
 
     # minimize action
     minimizer.minimize()

@@ -199,15 +199,25 @@ class Diagnostics:
     def reflection_angle(self, unit="rad"):
         us = self.orbit.get_u()
         tangents = self.orbit.table.tangent(self.orbit.phi).T
-        tangents = torch.roll(tangents, -1, dims=0)
 
-        print(tangents)
+        einfallswinkel = []
+        ausfallswinkel = []
 
-        einfallswinkel = angle_between(us, tangents)
-        ausfallswinkel = angle_between(tangents, torch.roll(us, -1, dims=0))
+        for i, tangent in enumerate(tangents):
+            einfallswinkel.append(angle_between(us[i-1], tangent))
+            ausfallswinkel.append(angle_between(us[i], tangent))
 
-        einfallswinkel = torch.roll(einfallswinkel, 1, dims=0)
-        ausfallswinkel = torch.roll(ausfallswinkel, 1, dims=0)
+        einfallswinkel = torch.tensor(einfallswinkel)
+        ausfallswinkel = torch.tensor(ausfallswinkel)
+
+        #fig, ax = self.orbit.plot(show=False)
+        #ax.quiver(*self.orbit.points()[0].detach().T, us[0, 0].detach(), us[0, 1].detach())
+        #ax.quiver(*self.orbit.points()[0].detach().T, us[-1, 0].detach(), us[-1, 1].detach())
+        #ax.quiver(*self.orbit.points()[0].detach().T, tangents[0, 0].detach(), tangents[0, 1].detach())
+        #plt.show()
+
+        # einfallswinkel = torch.roll(einfallswinkel, 1, dims=0)
+        # ausfallswinkel = torch.roll(ausfallswinkel, 1, dims=0)
         # ausfallswinkel = torch.roll(ausfallswinkel, 1, dims=0)
 
         if unit == "deg":
@@ -219,12 +229,14 @@ class Diagnostics:
     def reflection(self, unit="deg"):
         if self.mode == "classic":
             einfallswinkel, ausfallswinkel = self.reflection_angle(unit=unit)
-            print(einfallswinkel)
-            print(ausfallswinkel)
+
             error = torch.abs(
                 100*(einfallswinkel - ausfallswinkel)/einfallswinkel)
         elif self.mode == "inversemagnetic":
             error = torch.tensor([])
+
+        print(f"Angles of Incidence: {list(einfallswinkel)}")
+        print(f"Angles of Reflection: {list(ausfallswinkel)}")
 
         fig = plt.figure()
         fig.suptitle("Error in Reflection Law")

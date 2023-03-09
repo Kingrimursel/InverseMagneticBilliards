@@ -38,8 +38,12 @@ class Action:
 
         self.table = Table(a=a, b=b)
 
-        self.returnmap = ReturnMap(self.a, self.b, self.mu,
-                                   frequency=(1, 1), mode=self.mode, **self.kwargs)
+        self.returnmap = ReturnMap(self.a,
+                                   self.b,
+                                   self.mu,
+                                   frequency=(1, 1),
+                                   mode=self.mode,
+                                   **self.kwargs)
 
     def __call__(self, phi, theta):
         coordinates, center = self.returnmap(phi, theta)
