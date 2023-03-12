@@ -15,15 +15,15 @@ if __name__ == "__main__":
     mode = "inversemagnetic"
     type = "generatingfunction"
     subdir = "ellipse"
-    
-    exec = "minimize"
+
+    exec = "generate"
 
     if exec == "generate":
         generate_dataset(a,
                          b,
                          mu,
-                         10000,
-                         "validate10k.npy",
+                         100000,
+                         "train100k.npy",
                          cs=cs,
                          subdir=subdir,
                          mode=mode,
@@ -47,5 +47,5 @@ if __name__ == "__main__":
             b,
             mu,
             n_epochs=5000,
-            dir="generatingfunction/custom/inversemagnetic/ellipse/2023-03-11"
+            dir="generatingfunction/custom/classic/ellipse/2023-03-11"
         )

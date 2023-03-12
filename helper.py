@@ -284,7 +284,7 @@ class Diagnostics:
             x = np.arange(len(ex_errors)) + 1
             plt.plot(x, ex_errors, label="Exit Tangent Error")
             plt.plot(x, re_errors, label="Reenter Tangent Error")
-        
+
         plt.xticks(x, x)
         plt.legend(loc="best")
         plt.show()
