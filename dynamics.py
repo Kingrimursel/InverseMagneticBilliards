@@ -17,7 +17,7 @@ from conf import RES_LCIRC
 
 
 class Orbit:
-    def __init__(self, a, b, mu, frequency=(), mode="classic", init="random", cs="Birkhoff", *args, **kargs):
+    def __init__(self, a, b, mu, frequency=(), mode="classic", init="random", cs="Birkhoff", helicity="pos", *args, **kargs):
         """An inverse magnetic orbit
 
         Args:
@@ -32,6 +32,7 @@ class Orbit:
         self.mode = mode
         self.cs = cs
         self.mu = mu
+        self.helicity = helicity
 
         if len(frequency) > 0:
             self.m, self.n = frequency
@@ -46,9 +47,9 @@ class Orbit:
 
         # initialize the orbit
         if init == "random":
-            offset = 1e-7
-            self.phi = torch.tensor(np.random.uniform(
-                low=offset, high=2*np.pi-offset, size=self.n).astype("float32"), requires_grad=True)
+            self.phi = 2*torch.pi*torch.rand(self.n, requires_grad=True)
+            # self.phi = torch.tensor(np.random.uniform(
+            #    low=offset, high=2*np.pi-offset, size=self.n).astype("float32"), requires_grad=True)
         elif init == "uniform":
             indices = 1 + \
                 torch.remainder(((self.m)*torch.arange(self.n)), self.n)
@@ -56,6 +57,12 @@ class Orbit:
             indices[indices == 0] = self.n
 
             self.phi = indices/self.n*2*torch.pi
+            if self.helicity == "right":
+                self.phi = torch.flip(self.phi, dims=(0,))
+
+            offset_phi = 2*torch.pi*torch.rand(1).repeat(self.n)
+            self.phi += offset_phi
+
             self.phi.requires_grad_()
         else:
             return
@@ -75,28 +82,15 @@ class Orbit:
         self.p = self.points()
 
     def get_u(self):
-        phi = self.get_phi()
-        self.u = self.points(x=torch.roll(phi, -1)) - self.points(x=phi)
+        self.u = self.points(x=torch.roll(self.phi, -1)) - self.points(x=self.phi)
 
         return self.u
-
-    def get_s(self):
-        return self.s
-
-    def get_phi(self):
-        return self.phi
 
     def points(self, x=None):
         if x is None:
             return self.table.boundary(self.phi)
         else:
             return self.table.boundary(x)
-
-    def pair_phi(self, periodic=True):
-        return pair(self.phi, periodic=periodic)
-
-    def pair_s(self, periodic=True):
-        return pair(self.s, periodic=periodic)
 
     def update(self, phi0, theta0):
         self.phi = phi0

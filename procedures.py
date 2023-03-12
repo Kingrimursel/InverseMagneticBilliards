@@ -7,7 +7,7 @@ from dynamics import Orbit
 
 from helper import Training, Minimizer, Diagnostics
 from conf import MODELDIR, GRAPHICSDIR, TODAY
-from util import mkdir
+from util import batch_jacobian, mkdir, grad
 
 
 def training_procedure(**kwargs):
@@ -75,7 +75,9 @@ def minimization_procedure(a, b, mu, n_epochs=100, dir=None):
     img_path = os.path.join(GRAPHICSDIR, type, cs, mode,
                             subdir, TODAY, "orbit.png")
 
-    orbit.plot(img_path=img_path)
+    # orbit.plot(img_path=img_path)
+
+    diagnostics.landscape(grad(G_hat, norm=True), n=150)
 
     # plot the minimization loss
     # minimizer.plot()

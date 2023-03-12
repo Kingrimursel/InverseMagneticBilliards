@@ -287,3 +287,27 @@ def get_tangent(point, circ, factor=1):
                         tuple(closest_vertices[0] + factor*tangent)])
 
     return tangent, chord
+
+
+def grad(fn, norm=False):
+    def fn_(x):
+        if norm:
+            return torch.norm(torch.squeeze(batch_jacobian(fn, x)), dim=1)
+        return torch.squeeze(batch_jacobian(fn, x))
+    return fn_
+
+
+def values_in_quantile(x, q=0):
+    """
+    Get alues in q quantile
+    """
+    if q == 1.:
+        idx = torch.arange(len(x))
+    else:
+        largest_abs = torch.topk(torch.abs(x), k=int(q * len(x)), largest=True)
+        smallest = torch.topk(largest_abs.values, k=int(len(largest_abs.values) / len(x) * q * len(largest_abs.values)),
+                              largest=False)
+
+        idx = largest_abs.indices[smallest.indices]
+
+    return idx

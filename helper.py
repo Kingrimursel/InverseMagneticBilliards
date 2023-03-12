@@ -14,7 +14,7 @@ from dynamics import Orbit, ReturnMap
 from shapely.geometry import Point
 from ml.training import train_model
 from ml.models import ReLuModel
-from util import batch_jacobian, batch_hessian, angle_between, generate_readme, mkdir, get_tangent, unit_vector
+from util import batch_jacobian, batch_hessian, angle_between, generate_readme, mkdir, get_tangent, unit_vector, values_in_quantile
 from conf import device, MODELDIR, DATADIR, TODAY, GRAPHICSDIR
 
 
@@ -101,7 +101,7 @@ class Training:
 
     def plot_loss(self):
         graphics_dir = os.path.join(
-            GRAPHICSDIR, self.type, self.cs, self.subdir, TODAY)
+            GRAPHICSDIR, self.type, self.cs, self.mode, self.subdir, TODAY)
         mkdir(graphics_dir)
         graphic_filename = os.path.join(graphics_dir, "loss.png")
 
@@ -150,8 +150,8 @@ class Minimizer:
             pb.set_postfix({"Loss": grad_loss.item()})
 
             # calculate the gradient loss
-            grad_loss = torch.linalg.norm(
-                batch_jacobian(self.discrete_action, self.orbit.phi), ord=2)
+            grad_loss = torch.linalg.norm(batch_jacobian(
+                self.discrete_action, self.orbit.phi))
 
             total_loss = grad_loss
 
@@ -159,15 +159,12 @@ class Minimizer:
             total_loss.backward()
             self.optimizer.step()
 
-            # since we have only learned the model in the interval [2, 2pi], we move the point there
+            # since we have only learned the model in the interval [0, 2pi], we move the point there
             with torch.no_grad():
-                self.orbit.phi.remainder_(2*np.pi)
+                self.orbit.phi.remainder_(2*torch.pi)
 
             # save losses
             grad_losses.append(grad_loss.item())
-
-            # log the result
-            # print('Epoch: {}, Loss: {:.4f}'.format(epoch+1, grad_loss))
 
         self.grad_losses = torch.tensor(grad_losses)
 
@@ -287,6 +284,55 @@ class Diagnostics:
 
         plt.xticks(x, x)
         plt.legend(loc="best")
+        plt.show()
+
+    def landscape(self, fn, n=100, repeat=False, dim=2):
+        phi0s = torch.linspace(0, 2*torch.pi, n)
+        phi2s = torch.linspace(0, 2*torch.pi, n)
+
+        grid_x, grid_y = torch.meshgrid(phi0s, phi2s, indexing="ij")
+        coordinates = torch.vstack(
+            [torch.ravel(grid_x), torch.ravel(grid_y)]).T
+
+        G = torch.squeeze(fn(coordinates))
+
+        if repeat:
+            coordinates = coordinates.repeat(3, 1)
+            coordinates[n**2:2*n**2, 0] += 2*torch.pi
+            coordinates[2*n**2:, 1] += 2*torch.pi
+            G = G.repeat(3)
+
+        if dim == 3:
+            fig = plt.figure()
+            ax = fig.add_subplot(projection="3d")
+            ax.scatter(coordinates[:, 0].detach(),
+                       coordinates[:, 1].detach(),
+                       G.detach(), c=G.detach())
+        else:
+            fig, ax = plt.subplots()
+
+            ax.set_aspect("equal")
+            ax.set_xticks([0, np.pi, 2*np.pi], ["0", "$\pi$", "$2\pi$"])
+            ax.set_yticks([0, np.pi, 2*np.pi], ["0", "$\pi$", "$2\pi$"])
+            ax.set_xlabel(r"$\varphi_0$")
+            ax.set_ylabel(r"$\varphi_2$")
+
+            # TODO: which objective do I really want to minimize? And how does this affect what I want to plot?
+
+            idx = values_in_quantile(G.detach(), q=0.999)
+            coordinates = coordinates[idx]
+            G = G[idx]
+
+            ax.scatter(coordinates[:, 0].detach(),
+                       coordinates[:, 1].detach(), c=G.detach())
+
+            phi0 = self.orbit.phi.detach()
+            phi2 = torch.roll(phi0, -1, dims=0)
+
+            ax.scatter(phi0, phi2, c="red", marker="x")
+
+        # ax.plot_surface(grid_x.detach(), grid_y.detach(), G.detach(), linewidth=0, antialiased=False)
+
         plt.show()
 
     def frequency(self):

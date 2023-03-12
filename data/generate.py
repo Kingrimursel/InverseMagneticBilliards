@@ -63,8 +63,6 @@ def generate_dataset(a, b, mu, n_samples, filename, cs="Birkhoff", type="ReturnM
                 phi2s.append(phi2)
                 Gs.append(G)
 
-        # phis = np.vstack((phi0s, phi2s)).T
-
         print(f"SAVING DATASET TO {filename}...")
         dataset = np.vstack((phi0s, phi2s, Gs)).T
 
