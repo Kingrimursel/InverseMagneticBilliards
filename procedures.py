@@ -32,7 +32,7 @@ def minimization_procedure(a, b, mu, n_epochs=100, dir=None):
         torch.load(filename)["model_state_dict"])
 
     # number of applications of return map
-    frequency = (1, 5)
+    frequency = (2, 5)
 
     # initialize an orbit
     orbit = Orbit(a=a,
@@ -78,10 +78,10 @@ def minimization_procedure(a, b, mu, n_epochs=100, dir=None):
     orbit.plot(img_path=img_path)
 
     # plot the minimization loss
-    minimizer.plot()
+    # minimizer.plot()
 
     # plot the gradient analysis
     # diagnostics.derivative(dir)
 
     # plot whether the reflection_law is satisfied
-    diagnostics.reflection()
+    diagnostics.physics()

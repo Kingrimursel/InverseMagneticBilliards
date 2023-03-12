@@ -27,7 +27,7 @@ def generate_dataset(a, b, mu, n_samples, filename, cs="Birkhoff", type="ReturnM
     eps = 1e-10
 
     if type == "generatingfunction":
-        print(f"GENERATING DATASET OF SIZE {n_samples*n_samples}...")
+        print(f"GENERATING DATASET OF SIZE {n_samples}...")
 
         # initialize grid of angles
         # phis = np.linspace(0, 2*np.pi, num=n_samples)

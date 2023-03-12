@@ -3,7 +3,7 @@ import torch
 
 import numpy as np
 from pathlib import Path
-from shapely.geometry import Point
+from shapely.geometry import Point, LineString
 import numdifftools as nd
 
 from functorch import jacfwd, jacrev, vmap, hessian
@@ -90,14 +90,13 @@ def angle_between(v1, v2):
             sp = (v1_u*v2_u).sum()
 
         angle = torch.arccos(sp)
-        #cross_product = np.cross(v1_u.detach(), v2_u.detach())
-        #angle[cross_product < 0] = np.pi - angle[cross_product < 0]
+        # cross_product = np.cross(v1_u.detach(), v2_u.detach())
+        # angle[cross_product < 0] = np.pi - angle[cross_product < 0]
 
         return angle
     else:
         print("is not inside")
         return np.arccos(np.clip(np.dot(v1_u, v2_u), -1.0, 1.0))
-
 
 
 def pair(x, periodic=True):
@@ -270,3 +269,21 @@ def generate_readme(path, content):
 
 def mkdir(dir):
     Path(dir).mkdir(parents=True, exist_ok=True)
+
+
+def get_tangent(point, circ, factor=1):
+    circ_coords = np.array(circ.exterior.coords)[:-1]
+    distances_vertices = np.array(
+        [Point(point).distance(Point(p)) for p in circ_coords])
+    closest_vertices = circ_coords[np.argpartition(
+        distances_vertices, 1)[0:2]]
+
+    # approximate the larmor circle's tangent at the exit point
+    tangent = closest_vertices[0] - closest_vertices[1]
+    tangent = unit_vector(tangent)
+    # tangent = tangent/np.linalg.norm(tangent)
+
+    chord = LineString([tuple(closest_vertices[0] - factor*tangent),
+                        tuple(closest_vertices[0] + factor*tangent)])
+
+    return tangent, chord

@@ -11,9 +11,10 @@ from data.datasets import ReturnMapDataset, ImplicitUDataset, GeneratingFunction
 from setting import Table
 from physics import DiscreteAction
 from dynamics import Orbit, ReturnMap
+from shapely.geometry import Point
 from ml.training import train_model
 from ml.models import ReLuModel
-from util import batch_jacobian, batch_hessian, angle_between, sigmoid_scaled, generate_readme, mkdir
+from util import batch_jacobian, batch_hessian, angle_between, generate_readme, mkdir, get_tangent, unit_vector
 from conf import device, MODELDIR, DATADIR, TODAY, GRAPHICSDIR
 
 
@@ -73,11 +74,12 @@ class Training:
             return
 
         # datasets
-        train_dataset = Dataset(os.path.join(
-            self.data_dir, self.train_dataset))
+        train_data_dir = os.path.join(self.data_dir, self.train_dataset)
+        print(f"Loading Training Dataset {train_data_dir}")
+        train_dataset = Dataset(train_data_dir)
         validation_dataset = Dataset(
             os.path.join(self.data_dir, "validate10k.npy"))
-        
+
         # model
         model = ReLuModel(input_dim=input_dim, output_dim=output_dim)
 
@@ -199,26 +201,28 @@ class Diagnostics:
     def reflection_angle(self, unit="rad"):
         us = self.orbit.get_u()
         tangents = self.orbit.table.tangent(self.orbit.phi).T
+        # tangents = torch.roll(tangents, -1, dims=0)
 
         einfallswinkel = []
         ausfallswinkel = []
 
         for i, tangent in enumerate(tangents):
+            # print(us[i-1])
+            # print(tangent)
+            # print(us[i])
+            # print(angle_between(us[i-1], tangent)*180/np.pi)
+            # print(angle_between(us[i], tangent)*180/np.pi)
+            # print("\n")
+            # fig, ax = self.orbit.plot(show=False)
+            # ax.quiver(*self.orbit.points()[i].detach().T, 10*us[i, 0].detach(), 10*us[i, 1].detach(), scale=1)
+            # ax.quiver(*self.orbit.points()[i].detach().T, 10*us[i-1, 0].detach(), 10*us[i-1, 1].detach(), scale=1)
+            # ax.quiver(*self.orbit.points()[i].detach().T, 10*tangents[i, 0].detach(), 10*tangents[i, 1].detach(), scale=1)
+            # plt.show()
             einfallswinkel.append(angle_between(us[i-1], tangent))
             ausfallswinkel.append(angle_between(us[i], tangent))
 
         einfallswinkel = torch.tensor(einfallswinkel)
         ausfallswinkel = torch.tensor(ausfallswinkel)
-
-        #fig, ax = self.orbit.plot(show=False)
-        #ax.quiver(*self.orbit.points()[0].detach().T, us[0, 0].detach(), us[0, 1].detach())
-        #ax.quiver(*self.orbit.points()[0].detach().T, us[-1, 0].detach(), us[-1, 1].detach())
-        #ax.quiver(*self.orbit.points()[0].detach().T, tangents[0, 0].detach(), tangents[0, 1].detach())
-        #plt.show()
-
-        # einfallswinkel = torch.roll(einfallswinkel, 1, dims=0)
-        # ausfallswinkel = torch.roll(ausfallswinkel, 1, dims=0)
-        # ausfallswinkel = torch.roll(ausfallswinkel, 1, dims=0)
 
         if unit == "deg":
             einfallswinkel = einfallswinkel/2/np.pi*360
@@ -226,27 +230,67 @@ class Diagnostics:
 
         return einfallswinkel, ausfallswinkel
 
-    def reflection(self, unit="deg"):
+    def physics(self, unit="deg"):
+        print(f"DIAGNOSTIC physics...")
+        fig = plt.figure()
+        fig.suptitle("Error in Reflection Law")
+        plt.xlabel("Point")
+        plt.ylabel("Error [%]")
+
         if self.mode == "classic":
             einfallswinkel, ausfallswinkel = self.reflection_angle(unit=unit)
 
             error = torch.abs(
                 100*(einfallswinkel - ausfallswinkel)/torch.max(einfallswinkel, ausfallswinkel))
+
+            x = np.arange(len(error)) + 1
+            plt.plot(x, error.detach(), label="Angle Error")
+
+            print(f"Angles of Incidence: {einfallswinkel.tolist()}")
+            print(f"Angles of Reflection: {ausfallswinkel.tolist()}")
+
         elif self.mode == "inversemagnetic":
-            error = torch.tensor([])
+            p1s, centers = self.orbit.get_exit_points()
+            p0s = self.orbit.points().detach().numpy()
 
-        print(f"Angles of Incidence: {einfallswinkel.tolist()}")
-        print(f"Angles of Reflection: {ausfallswinkel.tolist()}")
+            factor = 6*max(self.a, self.b)
 
-        fig = plt.figure()
-        fig.suptitle("Error in Reflection Law")
-        plt.xlabel("Point")
-        plt.ylabel("Error [%]")
-        plt.plot(error.detach())
+            ex_errors = []
+            re_errors = []
 
+            for i in range(len(centers)):
+                center = centers[i-1]
+            # for i, center in enumerate(np.roll(centers, 1, axis=0)):
+                circle = Point(center).buffer(self.mu)
+                emp_ex_tan, _ = get_tangent(p1s[i-1], circle, factor=factor)
+                emp_re_tan, _ = get_tangent(p0s[i], circle, factor=factor)
+                re_ex_tan = unit_vector(p0s[i-1] - p1s[i-1])
+                re_re_tan = unit_vector(p1s[i] - p0s[i])
+
+                ex_error = 1 - abs(np.dot(emp_ex_tan, re_ex_tan))
+                re_error = 1 - abs(np.dot(emp_re_tan, re_re_tan))
+
+                ex_errors.append(ex_error)
+                re_errors.append(re_error)
+
+                # fig, ax = self.orbit.plot(show=False)
+                # ax.quiver(*p0s[i].T, 10*emp_re_tan[0], 10*emp_re_tan[1], scale=1)
+                # ax.quiver(*p1s[i-1].T, 10*emp_ex_tan[0], 10*emp_ex_tan[1], scale=1)
+                # ax.quiver(*p1s[i-1].T, 10*re_ex_tan[0],
+                #          10*re_ex_tan[1], scale=1)
+                # ax.plot(*emp_ex_chord.xy)
+                # plt.show()
+
+            x = np.arange(len(ex_errors)) + 1
+            plt.plot(x, ex_errors, label="Exit Tangent Error")
+            plt.plot(x, re_errors, label="Reenter Tangent Error")
+        
+        plt.xticks(x, x)
+        plt.legend(loc="best")
         plt.show()
 
     def frequency(self):
+        print("DIAGNOSTIC frequency...")
         phi_centered = self.orbit.phi - self.orbit.phi[0]
 
         diff = phi_centered - torch.roll(phi_centered, -1)
@@ -256,6 +300,11 @@ class Diagnostics:
         # m_approx = torch.sum(torch.nn.Sigmoid()(360*diff)).item()
 
         return (m, n)
+
+    def parameters(self, model):
+        for layer in model:
+            if hasattr(layer, "weight"):
+                print(layer.weight)
 
     def derivative(self, dir):
         """Analyze the networks gradients

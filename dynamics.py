@@ -10,6 +10,7 @@ from shapely.ops import nearest_points
 from setting import Table
 from util import (rotate_vector,
                   pair,
+                  get_tangent,
                   is_left_of)
 
 from conf import RES_LCIRC
@@ -172,20 +173,22 @@ class Orbit:
                     continue
 
                 # get two closes vertices of larmor circle to exit point
-                lcirc_coords = np.array(lcirc.exterior.coords)[:-1]
-                distances_vertices = np.array(
-                    [Point(p1).distance(Point(p)) for p in lcirc_coords])
-                closest_vertices = lcirc_coords[np.argpartition(
-                    distances_vertices, 1)[0:2]]
+                # lcirc_coords = np.array(lcirc.exterior.coords)[:-1]
+                # distances_vertices = np.array(
+                #    [Point(p1).distance(Point(p)) for p in lcirc_coords])
+                # closest_vertices = lcirc_coords[np.argpartition(
+                #    distances_vertices, 1)[0:2]]
 
                 # approximate the larmor circle's tangent at the exit point
-                v = closest_vertices[0] - closest_vertices[1]
-                v = v/np.linalg.norm(v)
+                # tangent = closest_vertices[0] - closest_vertices[1]
+                # tangent = tangent/np.linalg.norm(tangent)
 
                 # define the chord that goes through the exit point and is parallel to the approximated tangent
-                factor = 6*max(self.table.a, self.table.b)
-                chord = LineString([tuple(closest_vertices[0] - factor*v),
-                                   tuple(closest_vertices[0] + factor*v)])
+                # chord = LineString([tuple(closest_vertices[0] - factor*tangent),
+                #                   tuple(closest_vertices[0] + factor*tangent)])
+
+                _, chord = get_tangent(
+                    p1, lcirc, factor=6*max(self.table.a, self.table.b))
 
                 # calculate distance between chord and previous reenter point
                 dist_chord = chord.distance(Point(p0))
@@ -202,7 +205,7 @@ class Orbit:
 
         return np.array(p1s), np.array(centers)
 
-    def plot(self, img_path=None, show=True):
+    def plot(self, img_path=None, show=True, with_tangents=False):
         fig, ax = plt.subplots()
         ax.set_aspect("equal")
 
@@ -222,11 +225,12 @@ class Orbit:
             plt.annotate(f'{i + 1}', xy=(xi, yi), xytext=(1.2*xi, 1.2*yi))
 
         # plot tangents
-        for point in points2:
-            phi = self.table.get_polar_angle(point)
-            v = self.table.tangent(phi)
-            chord = self.get_chord(point, v)
-            ax.plot(*chord.xy, c="red")
+        if with_tangents:
+            for point in points2:
+                phi = self.table.get_polar_angle(point)
+                v = self.table.tangent(phi)
+                chord = self.get_chord(point, v)
+                ax.plot(*chord.xy, c="red")
 
         if self.mode == "classic":
             # plot the chords
