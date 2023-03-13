@@ -14,7 +14,15 @@ from dynamics import Orbit, ReturnMap
 from shapely.geometry import Point
 from ml.training import train_model
 from ml.models import ReLuModel
-from util import batch_jacobian, batch_hessian, angle_between, generate_readme, mkdir, get_tangent, unit_vector, values_in_quantile
+from util import (batch_jacobian,
+                  batch_hessian,
+                  angle_between,
+                  generate_readme,
+                  mkdir,
+                  get_tangent,
+                  unit_vector,
+                  values_in_quantile,
+                  pair)
 from conf import device, MODELDIR, DATADIR, TODAY, GRAPHICSDIR
 
 
@@ -129,7 +137,7 @@ class Minimizer:
         self.table = Table(a=a, b=b)
         self.orbit = orbit
         self.n_epochs = n_epochs
-        self.optimizer = torch.optim.Adam([orbit.phi], lr=1e-3)
+        self.optimizer = torch.optim.Adam([orbit.phi], lr=1e-4)
         self.action_fn = action_fn
         self.frequency = frequency
         self.m, self.n = frequency
@@ -152,6 +160,9 @@ class Minimizer:
             # calculate the gradient loss
             grad_loss = torch.linalg.norm(batch_jacobian(
                 self.discrete_action, self.orbit.phi))
+            
+            #grad_loss = torch.abs(batch_jacobian(self.discrete_action, self.orbit.phi).sum())
+
 
             total_loss = grad_loss
 
@@ -326,10 +337,12 @@ class Diagnostics:
             ax.scatter(coordinates[:, 0].detach(),
                        coordinates[:, 1].detach(), c=G.detach())
 
-            phi0 = self.orbit.phi.detach()
-            phi2 = torch.roll(phi0, -1, dims=0)
+            ax.scatter(pair(self.orbit.phi.detach())[:, 0],
+                       pair(self.orbit.phi.detach())[:, 1], c="red", marker="x")
 
-            ax.scatter(phi0, phi2, c="red", marker="x")
+
+            for i, (xi, yi) in enumerate(pair(self.orbit.phi.detach())):
+                plt.annotate(f'{i + 1}', xy=(xi, yi), xytext=(1.1*xi, 1.1*yi), c="red")
 
         # ax.plot_surface(grid_x.detach(), grid_y.detach(), G.detach(), linewidth=0, antialiased=False)
 

@@ -46,6 +46,6 @@ if __name__ == "__main__":
                 a,
                 b,
                 mu,
-                n_epochs=1,
+                n_epochs=10000,
                 dir=os.path.join(type, cs, mode, subdir, "2023-03-12")
             )

@@ -75,12 +75,12 @@ def minimization_procedure(a, b, mu, n_epochs=100, dir=None):
     img_path = os.path.join(GRAPHICSDIR, type, cs, mode,
                             subdir, TODAY, "orbit.png")
 
-    # orbit.plot(img_path=img_path)
+    orbit.plot(img_path=img_path)
 
     diagnostics.landscape(grad(G_hat, norm=True), n=150)
 
     # plot the minimization loss
-    # minimizer.plot()
+    minimizer.plot()
 
     # plot the gradient analysis
     # diagnostics.derivative(dir)
