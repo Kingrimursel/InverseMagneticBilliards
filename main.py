@@ -5,7 +5,7 @@ from data.generate import generate_dataset
 
 if __name__ == "__main__":
     # table properties
-    a = 2
+    a = 1
     b = 1
 
     # magnetic properties
@@ -14,7 +14,7 @@ if __name__ == "__main__":
     cs = "custom"
     mode = "inversemagnetic"
     type = "generatingfunction"
-    subdir = "ellipse"
+    subdir = "circle"
 
     execs = ["minimize"]
     for exec in execs:
@@ -22,8 +22,8 @@ if __name__ == "__main__":
             generate_dataset(a,
                             b,
                             mu,
-                            10000,
-                            "validate10k.npy",
+                            100000,
+                            "train100k.npy",
                             cs=cs,
                             subdir=subdir,
                             mode=mode,

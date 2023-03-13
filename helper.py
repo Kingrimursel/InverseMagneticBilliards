@@ -3,14 +3,11 @@ import torch
 from torch.utils.data import DataLoader
 from tqdm import tqdm
 import numpy as np
-from pathlib import Path
-from datetime import datetime
 from matplotlib import pyplot as plt
 
 from data.datasets import ReturnMapDataset, ImplicitUDataset, GeneratingFunctionDataset
 from setting import Table
 from physics import DiscreteAction
-from dynamics import Orbit, ReturnMap
 from shapely.geometry import Point
 from ml.training import train_model
 from ml.models import ReLuModel
@@ -21,9 +18,8 @@ from util import (batch_jacobian,
                   mkdir,
                   get_tangent,
                   unit_vector,
-                  values_in_quantile,
                   pair)
-from conf import device, MODELDIR, DATADIR, TODAY, GRAPHICSDIR
+from conf import device, MODELDIR, DATADIR, TODAY
 
 
 class Training:
@@ -89,20 +85,21 @@ class Training:
 
         # train
         model, training_loss, validation_loss = train_model(model,
-                                                                             train_dataset,
-                                                                             validation_dataset,
-                                                                             torch.nn.MSELoss(),
-                                                                             self.num_epochs,
-                                                                             dir=self.model_dir,
-                                                                             batch_size=self.batch_size,
-                                                                             device=device)
+                                                            train_dataset,
+                                                            validation_dataset,
+                                                            torch.nn.MSELoss(),
+                                                            self.num_epochs,
+                                                            dir=self.model_dir,
+                                                            batch_size=self.batch_size,
+                                                            device=device)
 
         self.model = model
         self.training_loss = training_loss
         self.validation_loss = validation_loss
 
     def plot_loss(self):
-        img_dir = get_todays_graphics_dir(self.type, self.cs, self.mode, self.subdir)
+        img_dir = get_todays_graphics_dir(
+            self.type, self.cs, self.mode, self.subdir)
         graphic_filename = os.path.join(img_dir, "training_loss.png")
 
         fig = plt.figure()
@@ -325,24 +322,19 @@ class Diagnostics:
             ax.set_xlabel(r"$\varphi_0$")
             ax.set_ylabel(r"$\varphi_2$")
 
-            # TODO: which objective do I really want to minimize? And how does this affect what I want to plot?
+            scatter = ax.scatter(coordinates[:, 0].detach(),
+                                 coordinates[:, 1].detach(), c=G.detach())
 
-            idx = values_in_quantile(G.detach(), q=1)
-            coordinates = coordinates[idx]
-            G = G[idx]
+            orbit_pairs = pair(self.orbit.phi.detach())
 
-            ax.scatter(coordinates[:, 0].detach(),
-                       coordinates[:, 1].detach(), c=G.detach())
+            ax.scatter(orbit_pairs[:, 0],
+                       orbit_pairs[:, 1], c="red", marker="x")
 
-            orbit_pairs = pair(self.orbit.phi.detach())  # .remainder(2*torch.pi)
-
-            ax.scatter(orbit_pairs[:, 0], orbit_pairs[:, 1], c="red", marker="x")
+            fig.colorbar(scatter, ax=ax)
 
             for i, (xi, yi) in enumerate(pair(self.orbit.phi.detach())):
                 plt.annotate(f'{i + 1}', xy=(xi, yi),
                              xytext=(1.1*xi, 1.1*yi), c="red")
-
-        # ax.plot_surface(grid_x.detach(), grid_y.detach(), G.detach(), linewidth=0, antialiased=False)
 
         if img_dir is not None:
             plt.savefig(os.path.join(img_dir, "landscape.png"))
