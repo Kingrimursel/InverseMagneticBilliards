@@ -3,7 +3,7 @@ import numpy as np
 
 from setting import Table
 from dynamics import ReturnMap
-from util import pair, intersection_parameters, area_overlap
+from util import pair, circ_int_params, area_overlap
 
 
 class DiscreteAction:
@@ -24,6 +24,7 @@ class DiscreteAction:
                 dists = np.linalg.norm(points - points2, axis=1)
                 action = np.sum(dists)
         else:
+            # TODO: instead of calculating the remainder here, write a custom input layer that does modulo
             action = torch.sum(self.action_fn(pair(phis)))
         return action
 
@@ -67,16 +68,17 @@ class Action:
 
                 assert S > 0
 
-                phii, phif = intersection_parameters(
-                    self.table, self.mu, center)
+                phii, phif = circ_int_params(self.table, self.mu, center, phi2)
 
-                phi_delta = phif - \
-                    phii if phif > phii else (phif + 2*np.pi) - phii
+                phi_delta = phif - phii if phif > phii else 2 * \
+                    torch.pi - (phii - phif)
 
                 assert phi_delta > 0
 
                 if phii is not None:
                     # length of first chord
+                    # print(phii*180/torch.pi, phif*180/torch.pi)
+                    # print(phi_delta*180/torch.pi)
                     l1 = np.linalg.norm(coordinates[1] - coordinates[0], ord=2)
 
                     # length of circular arc outside of the billiard table
@@ -89,5 +91,15 @@ class Action:
             else:
                 phi2 = None
                 G = None
+
+            # from shapely.geometry import Point
+            # from matplotlib import pyplot as plt
+            # Create circle and ellipse objects
+            # circle = Point(center).buffer(self.mu)
+            # Calculate intersection area using shapely
+            # intersection = circle.intersection(self.table.polygon)
+            # fig, ax = self.returnmap.plot(phi, theta, show=False)
+            # ax.plot(*intersection.exterior.xy)
+            # plt.show()
 
         return phi, phi2, G

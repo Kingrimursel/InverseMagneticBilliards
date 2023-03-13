@@ -17,7 +17,7 @@ from ml.models import ReLuModel
 from util import (batch_jacobian,
                   batch_hessian,
                   angle_between,
-                  generate_readme,
+                  generate_readme, get_todays_graphics_dir,
                   mkdir,
                   get_tangent,
                   unit_vector,
@@ -36,8 +36,6 @@ class Training:
                  batch_size=128,
                  subdir="",
                  save=True,
-                 alpha=1e-3,
-                 *args,
                  **kwargs):
 
         self.num_epochs = num_epochs
@@ -47,12 +45,10 @@ class Training:
         self.mode = mode
         self.train_dataset = train_dataset
         self.save = save
-        self.alpha = alpha
         self.batch_size = batch_size
 
         self.model = None
         self.training_loss = 0.
-        self.hess_train_loss = 0.
         self.validation_loss = 0.
 
         self.data_dir = os.path.join(
@@ -92,32 +88,27 @@ class Training:
         model = ReLuModel(input_dim=input_dim, output_dim=output_dim)
 
         # train
-        model, training_loss, validation_loss, hess_train_loss = train_model(model,
+        model, training_loss, validation_loss = train_model(model,
                                                                              train_dataset,
                                                                              validation_dataset,
                                                                              torch.nn.MSELoss(),
                                                                              self.num_epochs,
                                                                              dir=self.model_dir,
-                                                                             alpha=self.alpha,
                                                                              batch_size=self.batch_size,
                                                                              device=device)
 
         self.model = model
         self.training_loss = training_loss
         self.validation_loss = validation_loss
-        self.hess_train_loss = hess_train_loss
 
     def plot_loss(self):
-        graphics_dir = os.path.join(
-            GRAPHICSDIR, self.type, self.cs, self.mode, self.subdir, TODAY)
-        mkdir(graphics_dir)
-        graphic_filename = os.path.join(graphics_dir, "loss.png")
+        img_dir = get_todays_graphics_dir(self.type, self.cs, self.mode, self.subdir)
+        graphic_filename = os.path.join(img_dir, "training_loss.png")
 
         fig = plt.figure()
         plt.suptitle(self.type)
         plt.plot(self.training_loss, label="train", c="navy")
         plt.plot(self.validation_loss, label="validation", c="pink")
-        plt.plot(self.hess_train_loss, label="hessian train", c="green")
         plt.yscale("log")
         # plt.xscale("log")
         plt.legend(loc="upper right")
@@ -137,7 +128,7 @@ class Minimizer:
         self.table = Table(a=a, b=b)
         self.orbit = orbit
         self.n_epochs = n_epochs
-        self.optimizer = torch.optim.Adam([orbit.phi], lr=1e-4)
+        self.optimizer = torch.optim.Adam([orbit.phi], lr=1e-3)
         self.action_fn = action_fn
         self.frequency = frequency
         self.m, self.n = frequency
@@ -160,9 +151,8 @@ class Minimizer:
             # calculate the gradient loss
             grad_loss = torch.linalg.norm(batch_jacobian(
                 self.discrete_action, self.orbit.phi))
-            
-            #grad_loss = torch.abs(batch_jacobian(self.discrete_action, self.orbit.phi).sum())
 
+            # grad_loss = torch.abs(batch_jacobian(self.discrete_action, self.orbit.phi).sum())
 
             total_loss = grad_loss
 
@@ -179,7 +169,7 @@ class Minimizer:
 
         self.grad_losses = torch.tensor(grad_losses)
 
-    def plot(self):
+    def plot(self, img_dir=None):
         fig = plt.figure()
         fig.suptitle("Minimization Loss")
         plt.xlabel("epoch")
@@ -188,6 +178,9 @@ class Minimizer:
         plt.yscale("log")
         # if len(self.m_losses) > 0:
         #    plt.plot(self.m_losses)
+
+        if img_dir is not None:
+            plt.savefig(os.path.join(img_dir, "minimization_loss.png"))
 
         plt.show()
 
@@ -238,7 +231,7 @@ class Diagnostics:
 
         return einfallswinkel, ausfallswinkel
 
-    def physics(self, unit="deg"):
+    def physics(self, unit="deg", img_dir=None):
         print(f"DIAGNOSTIC physics...")
         fig = plt.figure()
         fig.suptitle("Error in Reflection Law")
@@ -295,9 +288,13 @@ class Diagnostics:
 
         plt.xticks(x, x)
         plt.legend(loc="best")
+
+        if img_dir is not None:
+            plt.savefig(os.path.join(img_dir, "physics_error.png"))
+
         plt.show()
 
-    def landscape(self, fn, n=100, repeat=False, dim=2):
+    def landscape(self, fn, n=100, repeat=False, dim=2, img_dir=None):
         phi0s = torch.linspace(0, 2*torch.pi, n)
         phi2s = torch.linspace(0, 2*torch.pi, n)
 
@@ -330,21 +327,25 @@ class Diagnostics:
 
             # TODO: which objective do I really want to minimize? And how does this affect what I want to plot?
 
-            idx = values_in_quantile(G.detach(), q=0.999)
+            idx = values_in_quantile(G.detach(), q=1)
             coordinates = coordinates[idx]
             G = G[idx]
 
             ax.scatter(coordinates[:, 0].detach(),
                        coordinates[:, 1].detach(), c=G.detach())
 
-            ax.scatter(pair(self.orbit.phi.detach())[:, 0],
-                       pair(self.orbit.phi.detach())[:, 1], c="red", marker="x")
+            orbit_pairs = pair(self.orbit.phi.detach())  # .remainder(2*torch.pi)
 
+            ax.scatter(orbit_pairs[:, 0], orbit_pairs[:, 1], c="red", marker="x")
 
             for i, (xi, yi) in enumerate(pair(self.orbit.phi.detach())):
-                plt.annotate(f'{i + 1}', xy=(xi, yi), xytext=(1.1*xi, 1.1*yi), c="red")
+                plt.annotate(f'{i + 1}', xy=(xi, yi),
+                             xytext=(1.1*xi, 1.1*yi), c="red")
 
         # ax.plot_surface(grid_x.detach(), grid_y.detach(), G.detach(), linewidth=0, antialiased=False)
+
+        if img_dir is not None:
+            plt.savefig(os.path.join(img_dir, "landscape.png"))
 
         plt.show()
 

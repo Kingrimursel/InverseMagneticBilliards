@@ -22,8 +22,8 @@ if __name__ == "__main__":
             generate_dataset(a,
                             b,
                             mu,
-                            100000,
-                            "train100k.npy",
+                            10000,
+                            "validate10k.npy",
                             cs=cs,
                             subdir=subdir,
                             mode=mode,
@@ -39,13 +39,13 @@ if __name__ == "__main__":
                             mode=mode,
                             train_dataset="train100k.npy",
                             save=True,
-                            batch_size=512,
-                            alpha=1e0)
+                            batch_size=512)
         elif exec == "minimize":
             minimization_procedure(
                 a,
                 b,
                 mu,
-                n_epochs=10000,
-                dir=os.path.join(type, cs, mode, subdir, "2023-03-12")
+                helicity="pos",
+                n_epochs=1000,
+                dir=os.path.join(type, cs, mode, subdir, "2023-03-13")
             )

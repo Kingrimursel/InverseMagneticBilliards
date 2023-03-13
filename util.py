@@ -8,7 +8,7 @@ import numdifftools as nd
 
 from functorch import jacfwd, jacrev, vmap, hessian
 from scipy.optimize import root_scalar
-from conf import GRAPHICSDIR
+from conf import GRAPHICSDIR, TODAY
 
 
 def get_legend(a, b, m, n):
@@ -162,7 +162,7 @@ def get_polar_angle(a,  p):
     return phi
 
 
-def intersection_parameters(table, mu, center):
+def circ_int_params(table, mu, center, phi2_orig):
     circle = Point(center).buffer(mu)
 
     intersection = table.polygon.exterior.intersection(circle.exterior)
@@ -170,12 +170,22 @@ def intersection_parameters(table, mu, center):
     if not intersection.is_empty:
         sol = table.polygon.exterior.intersection(circle.exterior).geoms
 
+        p2_orig = table.boundary(phi2_orig)
+
         phii = get_polar_angle(
             1, 1/mu*(list(list(sol[0].coords)[0]) - np.array(center)))
         phif = get_polar_angle(
             1, 1/mu*(list(list(sol[1].coords)[0]) - np.array(center)))
 
-        return phii, phif
+        pi = mu*np.array([np.cos(phii), np.sin(phii)]) + center
+        pf = mu*np.array([np.cos(phif), np.sin(phif)]) + center
+
+        # print(p2_orig)
+
+        if np.linalg.norm(pi - p2_orig) < np.linalg.norm(pf - p2_orig):
+            return phif, phii
+        else:
+            return phii, phif
 
     else:
         return None, None
@@ -311,3 +321,10 @@ def values_in_quantile(x, q=0):
         idx = largest_abs.indices[smallest.indices]
 
     return idx
+
+
+def get_todays_graphics_dir(type, cs, mode, subdir):
+    img_dir = os.path.join(GRAPHICSDIR, type, cs, mode, subdir, TODAY)
+    mkdir(img_dir)
+
+    return img_dir

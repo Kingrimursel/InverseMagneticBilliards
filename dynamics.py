@@ -1,3 +1,4 @@
+import os
 import torch
 import numpy as np
 from tqdm import tqdm
@@ -57,7 +58,7 @@ class Orbit:
             indices[indices == 0] = self.n
 
             self.phi = indices/self.n*2*torch.pi
-            if self.helicity == "right":
+            if self.helicity == "neg":
                 self.phi = torch.flip(self.phi, dims=(0,))
 
             offset_phi = 2*torch.pi*torch.rand(1).repeat(self.n)
@@ -199,7 +200,7 @@ class Orbit:
 
         return np.array(p1s), np.array(centers)
 
-    def plot(self, img_path=None, show=True, with_tangents=False):
+    def plot(self, img_dir=None, show=True, with_tangents=False):
         fig, ax = plt.subplots()
         ax.set_aspect("equal")
 
@@ -251,8 +252,8 @@ class Orbit:
             ax.plot(np.vstack([points2[:, 0], points1[:, 0]]),
                     np.vstack([points2[:, 1], points1[:, 1]]), c="navy")
 
-        if img_path is not None:
-            plt.savefig(img_path)
+        if img_dir is not None:
+            plt.savefig(os.path.join(img_dir, "orbit.png"))
 
         if show:
             plt.show()
@@ -319,7 +320,7 @@ class ReturnMap:
 
         return coordinates, center
 
-    def plot(self, phi0, theta0):
+    def plot(self, phi0, theta0, show=True):
         # apply the return
         coordinates, center = self.__call__(phi0, theta0)
 
@@ -335,9 +336,12 @@ class ReturnMap:
             ax.scatter(*center)
 
         for i, (xi, yi) in enumerate(zip(coordinates[:, 0], coordinates[:, 1])):
-            plt.annotate(f'{i}', xy=(xi, yi), xytext=(1.2*xi, 1.2*yi))
+            plt.annotate(f'{i}', xy=(xi, yi), xytext=(1.0*xi, 1.0*yi))
 
-        plt.show()
+        if show:
+            plt.show()
+
+        return fig, ax
 
     def get_larmor_centers(self, p0, p1):
         x0 = p0[0]

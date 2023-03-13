@@ -7,7 +7,7 @@ from dynamics import Orbit
 
 from helper import Training, Minimizer, Diagnostics
 from conf import MODELDIR, GRAPHICSDIR, TODAY
-from util import batch_jacobian, mkdir, grad
+from util import batch_jacobian, get_todays_graphics_dir, mkdir, grad
 
 
 def training_procedure(**kwargs):
@@ -18,7 +18,7 @@ def training_procedure(**kwargs):
         "mu"), kwargs.get("num_epochs"), kwargs.get("batch_size"))
 
 
-def minimization_procedure(a, b, mu, n_epochs=100, dir=None):
+def minimization_procedure(a, b, mu, n_epochs=100, dir=None, helicity="pos"):
     # load model
     filename = os.path.join(MODELDIR, dir, "model.pth")
 
@@ -32,7 +32,7 @@ def minimization_procedure(a, b, mu, n_epochs=100, dir=None):
         torch.load(filename)["model_state_dict"])
 
     # number of applications of return map
-    frequency = (1, 3)
+    frequency = (2, 5)
 
     # initialize an orbit
     orbit = Orbit(a=a,
@@ -40,6 +40,7 @@ def minimization_procedure(a, b, mu, n_epochs=100, dir=None):
                   mu=mu,
                   frequency=frequency,
                   mode=mode,
+                  helicity=helicity,
                   init="uniform")
 
     # initialize and execute minimizer
@@ -71,19 +72,17 @@ def minimization_procedure(a, b, mu, n_epochs=100, dir=None):
         f"Expected Frequency: (m, n) = {frequency}. Observed Frequency: (m, n) = {observed_frequency}")
 
     # plot the orbit
-    mkdir(os.path.join(GRAPHICSDIR, type, cs, mode, subdir, TODAY))
-    img_path = os.path.join(GRAPHICSDIR, type, cs, mode,
-                            subdir, TODAY, "orbit.png")
+    img_dir = get_todays_graphics_dir(type, cs, mode, subdir)
+    orbit.plot(img_dir=img_dir)
 
-    orbit.plot(img_path=img_path)
-
-    diagnostics.landscape(grad(G_hat, norm=True), n=150)
+    # diagnostics.landscape(grad(G_hat, norm=True), n=150)
+    diagnostics.landscape(G_hat, n=150, img_dir=img_dir)
 
     # plot the minimization loss
-    minimizer.plot()
+    minimizer.plot(img_dir=img_dir)
 
     # plot the gradient analysis
     # diagnostics.derivative(dir)
 
     # plot whether the reflection_law is satisfied
-    diagnostics.physics()
+    diagnostics.physics(img_dir=img_dir)
