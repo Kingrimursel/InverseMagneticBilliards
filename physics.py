@@ -7,25 +7,12 @@ from util import pair, circ_int_params, area_overlap
 
 
 class DiscreteAction:
-    def __init__(self, action_fn, table, exact=False, *args, **kwargs):
+    def __init__(self, action_fn, table, *args, **kwargs):
         self.action_fn = action_fn
         self.table = table
-        self.exact = exact
 
     def __call__(self, phis):
-        if self.exact:
-            points = self.table.boundary(phis)
-            if torch.is_tensor(points):
-                points2 = torch.roll(points, 1, 0)
-                dists = torch.norm(points - points2, dim=1)
-                action = torch.sum(dists)
-            else:
-                points2 = np.roll(points, 1, 0)
-                dists = np.linalg.norm(points - points2, axis=1)
-                action = np.sum(dists)
-        else:
-            # TODO: instead of calculating the remainder here, write a custom input layer that does modulo
-            action = torch.sum(self.action_fn(pair(phis)))
+        action = torch.sum(self.action_fn(pair(phis)))
         return action
 
 
@@ -45,13 +32,19 @@ class Action:
                                    frequency=(1, 1),
                                    mode=self.mode,
                                    **self.kwargs)
+        
+    def exact(self, phis):
+        p0 = self.table.boundary(phis[:, 0])
+        p2 = self.table.boundary(phis[:, 1])
+
+        return - torch.linalg.norm(p0 - p2, dim=1)
 
     def __call__(self, phi, theta):
         coordinates, center = self.returnmap(phi, theta)
 
         if self.mode == "classic":
             if coordinates[1][0] is not None:
-                G = np.linalg.norm(coordinates[0] - coordinates[1], ord=2)
+                G = - np.linalg.norm(coordinates[0] - coordinates[1], ord=2)
                 phi2 = self.table.get_polar_angle(coordinates[1])
             else:
                 G = None

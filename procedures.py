@@ -7,6 +7,8 @@ from dynamics import Orbit
 
 from helper import Training, Minimizer, Diagnostics
 from conf import MODELDIR, GRAPHICSDIR, TODAY
+from physics import Action
+from setting import Table
 from util import batch_jacobian, get_todays_graphics_dir, mkdir, grad
 
 
@@ -18,7 +20,7 @@ def training_procedure(**kwargs):
         "mu"), kwargs.get("num_epochs"), kwargs.get("batch_size"))
 
 
-def minimization_procedure(a, b, mu, n_epochs=100, dir=None, helicity="pos"):
+def minimization_procedure(a, b, mu, n_epochs=100, dir=None, helicity="pos", exact=False, frequency=(1, 1)):
     # load model
     filename = os.path.join(MODELDIR, dir, "model.pth")
 
@@ -27,12 +29,20 @@ def minimization_procedure(a, b, mu, n_epochs=100, dir=None, helicity="pos"):
     mode = dir.split("/")[-3]
     subdir = dir.split("/")[-2]
 
+    print(f"LOADING model from {filename}")
     G_hat = ReLuModel(input_dim=2, output_dim=1)
-    G_hat.load_state_dict(
-        torch.load(filename)["model_state_dict"])
+    G_hat.load_state_dict(torch.load(filename)["model_state_dict"])
+
+    # choose generating fn
+    if exact:
+        if mode != "classic":
+            print("ERROR: Exact action only available for classic mode")
+            exit(1)
+        G = Action(a, b, mu, mode=mode, cs=cs).exact
+    else:
+        G = G_hat
 
     # number of applications of return map
-    frequency = (2, 5)
 
     # initialize an orbit
     orbit = Orbit(a=a,
@@ -47,10 +57,9 @@ def minimization_procedure(a, b, mu, n_epochs=100, dir=None, helicity="pos"):
     minimizer = Minimizer(a,
                           b,
                           orbit,
-                          G_hat.model,
+                          G,
                           n_epochs=n_epochs,
-                          frequency=frequency,
-                          exact=False)
+                          frequency=frequency)
 
     # minimize action
     minimizer.minimize()
@@ -73,10 +82,15 @@ def minimization_procedure(a, b, mu, n_epochs=100, dir=None, helicity="pos"):
 
     # plot the orbit
     img_dir = get_todays_graphics_dir(type, cs, mode, subdir)
+
+    if mode == "classic":
+        img_dir = os.path.join(img_dir, "exact" if exact else "approx")
+        mkdir(img_dir)
+
     orbit.plot(img_dir=img_dir)
 
     # diagnostics.landscape(grad(G_hat, norm=True), n=150)
-    diagnostics.landscape(G_hat, n=150, img_dir=img_dir)
+    diagnostics.landscape(G, n=150, img_dir=img_dir)
 
     # plot the minimization loss
     minimizer.plot(img_dir=img_dir)

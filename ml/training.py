@@ -10,7 +10,7 @@ from util import batch_hessian, mkdir
 class EarlyStopper:
     def __init__(self, patience=1, min_delta=0):
         self.patience = patience
-        self.min_delta = min_delta
+        self.min_delta = torch.inf
         self.counter = 0
         self.min_validation_loss = torch.inf
 
@@ -18,6 +18,7 @@ class EarlyStopper:
         if validation_loss < self.min_validation_loss:
             self.min_validation_loss = validation_loss
             self.counter = 0
+            self.min_delta = 4*self.min_validation_loss
         elif validation_loss > (self.min_validation_loss + self.min_delta):
             self.counter += 1
             if self.counter >= self.patience:
@@ -38,7 +39,7 @@ def train_model(model,
     model = model.to(device)
 
     # initialize early stopper
-    early_stopper = EarlyStopper(patience=50, min_delta=1e-5)
+    early_stopper = EarlyStopper(patience=8, min_delta=5e-6)
 
     # Set model to training mode
     model.train()
@@ -48,7 +49,7 @@ def train_model(model,
     validation_losses = []
 
     # Optimizer
-    optimizer = torch.optim.Adam(model.parameters(), lr=1e-3)
+    optimizer = torch.optim.Adam(model.parameters(), lr=1e-4)
 
     train_loader = DataLoader(
         train_dataset, batch_size=batch_size, shuffle=True, pin_memory=True)
@@ -66,7 +67,8 @@ def train_model(model,
         epoch_validation_loss = 0.0
 
         pbar.set_postfix({'Training Loss': train_loss,
-                         'Validation Loss': validation_loss})
+                          'Validation Loss': validation_loss,
+                          'Stop Counter:': early_stopper.counter})
 
         # Train the model for one epoch
         for inputs, targets in train_loader:

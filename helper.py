@@ -119,7 +119,7 @@ class Training:
 
 
 class Minimizer:
-    def __init__(self, a, b, orbit, action_fn, n_epochs=50, frequency=(), *args, **kwargs):
+    def __init__(self, a, b, orbit, action_fn, n_epochs=50, frequency=()):
         self.a = a
         self.b = b
         self.table = Table(a=a, b=b)
@@ -130,7 +130,7 @@ class Minimizer:
         self.frequency = frequency
         self.m, self.n = frequency
 
-        self.discrete_action = DiscreteAction(action_fn, self.table, **kwargs)
+        self.discrete_action = DiscreteAction(action_fn, self.table)
 
         self.grad_losses = []
         self.m_losses = []

@@ -21,7 +21,7 @@ class Table:
         self.polygon = affinity.scale(
             Point(0, 0).buffer(1, resolution=RES_TABLE), a, b)
 
-    def get_collision(self, linestring):
+    def get_other_collision(self, linestring, p0):
         """
         Calculates the second intersection point of a straight line parametrized by its anchor p
         and a direction v with the billiard table's boundary.
@@ -36,8 +36,13 @@ class Table:
         # ax.set_aspect("equal")
         # plt.show()
 
+        # make sure to return the intersection that is further away from p0
         if len(intersection.coords) == 2:
-            return np.array(intersection.coords[1])
+            if np.linalg.norm(p0 - intersection.coords[0]) > np.linalg.norm(p0 - intersection.coords[1]):
+                return np.array(intersection.coords[0])
+            else:
+                return np.array(intersection.coords[1])
+            #return np.array(intersection.coords[1])
         else:
             return np.array([None, None])
 

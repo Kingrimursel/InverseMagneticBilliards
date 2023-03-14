@@ -24,8 +24,6 @@ def generate_dataset(a, b, mu, n_samples, filename, cs="Birkhoff", type="ReturnM
 
     filename = os.path.join(data_dir, filename)
 
-    eps = 1e-10
-
     if type == "generatingfunction":
         print(f"GENERATING DATASET OF SIZE {n_samples}...")
 
@@ -47,14 +45,13 @@ def generate_dataset(a, b, mu, n_samples, filename, cs="Birkhoff", type="ReturnM
         # coordinates = np.vstack([xx.ravel(), yy.ravel()]).T
         # np.random.shuffle(coordinates)
 
-
         for angles0 in tqdm(coordinates, total=n_samples):
-            phi0, theta0 = angles0[0], angles0[1]
-            phi0, phi2, G = action(phi0, theta0)
+            phi0_orig, theta0 = angles0[0], angles0[1]
+            phi0, phi2, G = action(phi0_orig, theta0)
 
+            # polygonial approximation is not exact
             if phi2 is not None and G is not None:
-                # if i%1000 == 0:
-                #    print(phi0*180/np.pi, phi2*180/np.pi)
+                # print(theta0, phi0, phi0*180/np.pi, phi2*180/np.pi, G)
                 # action.returnmap.plot(phi0, theta0)
                 phi0s.append(phi0)
                 phi2s.append(phi2)

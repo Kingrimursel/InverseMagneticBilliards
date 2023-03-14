@@ -62,7 +62,7 @@ class Orbit:
                 self.phi = torch.flip(self.phi, dims=(0,))
 
             offset_phi = 2*torch.pi*torch.rand(1).repeat(self.n)
-            self.phi += offset_phi
+            # self.phi += offset_phi
 
             self.phi.requires_grad_()
         else:
@@ -283,7 +283,7 @@ class ReturnMap:
             chord = self.get_chord(p0, v0)
 
             # collision point
-            p2 = self.table.get_collision(chord)
+            p2 = self.table.get_other_collision(chord, p0)
 
             coordinates = np.stack([p0, p2])
 
@@ -296,7 +296,7 @@ class ReturnMap:
             chord = self.get_chord(p0, v0)
 
             # collision point
-            p1 = self.table.get_collision(chord)
+            p1 = self.table.get_other_collision(chord, p0)
 
             # get larmor center
             if p1[0] is not None:
