@@ -107,11 +107,15 @@ class Training:
         plt.plot(self.training_loss, label="train", c="navy")
         plt.plot(self.validation_loss, label="validation", c="pink")
         plt.yscale("log")
+        plt.xlabel("Epoch")
+        plt.ylabel("Loss")
         # plt.xscale("log")
         plt.legend(loc="upper right")
         plt.savefig(graphic_filename)
 
         plt.show()
+
+        plt.close()
 
     def generate_readme(self, a, b, mu, num_epochs, batch_size):
         generate_readme(
@@ -166,7 +170,7 @@ class Minimizer:
 
         self.grad_losses = torch.tensor(grad_losses)
 
-    def plot(self, img_dir=None):
+    def plot(self, img_dir=None, show=True):
         fig = plt.figure()
         fig.suptitle("Minimization Loss")
         plt.xlabel("epoch")
@@ -179,7 +183,10 @@ class Minimizer:
         if img_dir is not None:
             plt.savefig(os.path.join(img_dir, "minimization_loss.png"))
 
-        plt.show()
+        if show:
+            plt.show()
+
+        plt.close()
 
 
 class Diagnostics:
@@ -228,7 +235,7 @@ class Diagnostics:
 
         return einfallswinkel, ausfallswinkel
 
-    def physics(self, unit="deg", img_dir=None):
+    def physics(self, unit="deg", img_dir=None, show=True):
         print(f"DIAGNOSTIC physics...")
         fig = plt.figure()
         fig.suptitle("Error in Reflection Law")
@@ -289,9 +296,12 @@ class Diagnostics:
         if img_dir is not None:
             plt.savefig(os.path.join(img_dir, "physics_error.png"))
 
-        plt.show()
+        if show:
+            plt.show()
 
-    def landscape(self, fn, n=100, repeat=False, dim=2, img_dir=None):
+        plt.close()
+
+    def landscape(self, fn, n=100, repeat=False, dim=2, img_dir=None, show=True):
         phi0s = torch.linspace(0, 2*torch.pi, n)
         phi2s = torch.linspace(0, 2*torch.pi, n)
 
@@ -339,7 +349,10 @@ class Diagnostics:
         if img_dir is not None:
             plt.savefig(os.path.join(img_dir, "landscape.png"))
 
-        plt.show()
+        if show:
+            plt.show()
+
+        plt.close()
 
     def frequency(self):
         print("DIAGNOSTIC frequency...")
@@ -434,3 +447,5 @@ class Diagnostics:
         plt.legend()
 
         plt.show()
+
+        plt.close()

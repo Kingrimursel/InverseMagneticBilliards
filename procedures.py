@@ -20,7 +20,7 @@ def training_procedure(**kwargs):
         "mu"), kwargs.get("num_epochs"), kwargs.get("batch_size"))
 
 
-def minimization_procedure(a, b, mu, n_epochs=100, dir=None, helicity="pos", exact=False, frequency=(1, 1)):
+def minimization_procedure(a, b, mu, n_epochs=100, dir=None, helicity="pos", exact=False, frequency=(1, 1), show=True):
     # load model
     filename = os.path.join(MODELDIR, dir, "model.pth")
 
@@ -42,7 +42,8 @@ def minimization_procedure(a, b, mu, n_epochs=100, dir=None, helicity="pos", exa
     else:
         G = G_hat
 
-    # number of applications of return map
+
+    assert frequency[0] < frequency[1], "m must be less than n"
 
     # initialize an orbit
     orbit = Orbit(a=a,
@@ -81,22 +82,22 @@ def minimization_procedure(a, b, mu, n_epochs=100, dir=None, helicity="pos", exa
         f"Expected Frequency: (m, n) = {frequency}. Observed Frequency: (m, n) = {observed_frequency}")
 
     # plot the orbit
-    img_dir = get_todays_graphics_dir(type, cs, mode, subdir)
+    img_dir = get_todays_graphics_dir(type, cs, mode, subdir, add=str(frequency))
 
     if mode == "classic":
         img_dir = os.path.join(img_dir, "exact" if exact else "approx")
         mkdir(img_dir)
 
-    orbit.plot(img_dir=img_dir)
+    orbit.plot(img_dir=img_dir, show=show)
 
     # diagnostics.landscape(grad(G_hat, norm=True), n=150)
-    diagnostics.landscape(G, n=150, img_dir=img_dir)
+    diagnostics.landscape(G, n=150, img_dir=img_dir, show=show)
 
     # plot the minimization loss
-    minimizer.plot(img_dir=img_dir)
+    minimizer.plot(img_dir=img_dir, show=show)
 
     # plot the gradient analysis
     # diagnostics.derivative(dir)
 
     # plot whether the reflection_law is satisfied
-    diagnostics.physics(img_dir=img_dir)
+    diagnostics.physics(img_dir=img_dir, show=show)

@@ -83,7 +83,8 @@ class Orbit:
         self.p = self.points()
 
     def get_u(self):
-        self.u = self.points(x=torch.roll(self.phi, -1)) - self.points(x=self.phi)
+        self.u = self.points(x=torch.roll(self.phi, -1)) - \
+            self.points(x=self.phi)
 
         return self.u
 
@@ -201,8 +202,12 @@ class Orbit:
         return np.array(p1s), np.array(centers)
 
     def plot(self, img_dir=None, show=True, with_tangents=False):
-        fig, ax = plt.subplots()
+        fig, ax = plt.subplots(figsize=(5, 5))
+
         ax.set_aspect("equal")
+        ax.axis("off")
+        fig.tight_layout(pad=0.)
+        plt.margins(0.01, 0.01)
 
         ax.add_patch(self.table.get_patch(fill="white"))
         ax.set_xlim([- max(self.table.a, self.table.b) - 0.5,
@@ -257,6 +262,8 @@ class Orbit:
 
         if show:
             plt.show()
+
+        plt.close()
 
         return fig, ax
 
@@ -340,6 +347,8 @@ class ReturnMap:
 
         if show:
             plt.show()
+
+        plt.close()
 
         return fig, ax
 

@@ -12,7 +12,7 @@ if __name__ == "__main__":
     mu = 1/5
 
     cs = "custom"
-    mode = "classic"
+    mode = "inversemagnetic"
     type = "generatingfunction"
     subdir = "ellipse"
 
@@ -22,8 +22,8 @@ if __name__ == "__main__":
             generate_dataset(a,
                              b,
                              mu,
-                             100000,
-                             "train100k.npy",
+                             10000,
+                             "validate10k.npy",
                              cs=cs,
                              subdir=subdir,
                              mode=mode,
@@ -41,13 +41,17 @@ if __name__ == "__main__":
                                save=True,
                                batch_size=512)
         elif exec == "minimize":
-            minimization_procedure(
-                a,
-                b,
-                mu,
-                exact=True,
-                frequency=(2, 5),
-                helicity="pos",
-                n_epochs=2000,
-                dir=os.path.join(type, cs, mode, subdir, "2023-03-14")
-            )
+            frequencies = [(1, 7), (2, 7), (3, 7), (4, 7), (5, 7), (6, 7)]
+
+            for frequency in frequencies:
+                minimization_procedure(
+                    a,
+                    b,
+                    mu,
+                    exact=False,
+                    show=False,
+                    frequency=frequency,
+                    helicity="pos",
+                    n_epochs=2000,
+                    dir=os.path.join(type, cs, mode, subdir, "2023-03-13")
+                )
