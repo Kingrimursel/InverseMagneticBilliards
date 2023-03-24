@@ -62,7 +62,7 @@ class Orbit:
                 self.phi = torch.flip(self.phi, dims=(0,))
 
             offset_phi = 2*torch.pi*torch.rand(1).repeat(self.n)
-            # self.phi += offset_phi
+            self.phi += offset_phi
 
             self.phi.requires_grad_()
         else:

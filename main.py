@@ -42,6 +42,7 @@ if __name__ == "__main__":
                                batch_size=512)
         elif exec == "minimize":
             frequencies = [(1, 7), (2, 7), (3, 7), (4, 7), (5, 7), (6, 7)]
+            # frequencies = [(6, 7)]
 
             for frequency in frequencies:
                 minimization_procedure(
@@ -52,6 +53,7 @@ if __name__ == "__main__":
                     show=False,
                     frequency=frequency,
                     helicity="pos",
+                    plot_points=True,
                     n_epochs=2000,
                     dir=os.path.join(type, cs, mode, subdir, "2023-03-13")
                 )

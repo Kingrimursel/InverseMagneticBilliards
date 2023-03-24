@@ -18,7 +18,7 @@ from util import (batch_jacobian,
                   mkdir,
                   get_tangent,
                   unit_vector,
-                  pair)
+                  pair, values_in_quantile)
 from conf import device, MODELDIR, DATADIR, TODAY
 
 
@@ -203,6 +203,9 @@ class Diagnostics:
 
         self.table = Table(a=self.a, b=self.b)
 
+        self.data_dir = os.path.join(
+            DATADIR, self.type, self.cs, self.mode, self.subdir)
+
     def reflection_angle(self, unit="rad"):
         us = self.orbit.get_u()
         tangents = self.orbit.table.tangent(self.orbit.phi).T
@@ -238,11 +241,11 @@ class Diagnostics:
     def physics(self, unit="deg", img_dir=None, show=True):
         print(f"DIAGNOSTIC physics...")
         fig = plt.figure()
-        fig.suptitle("Error in Reflection Law")
+        # fig.suptitle("Error in Reflection Law")
         plt.xlabel("Point")
-        plt.ylabel("Error [%]")
 
         if self.mode == "classic":
+            plt.ylabel("Error [%]")
             einfallswinkel, ausfallswinkel = self.reflection_angle(unit=unit)
 
             error = torch.abs(
@@ -255,8 +258,11 @@ class Diagnostics:
             print(f"Angles of Reflection: {ausfallswinkel.tolist()}")
 
         elif self.mode == "inversemagnetic":
+            plt.ylabel("Error")
             p1s, centers = self.orbit.get_exit_points()
             p0s = self.orbit.points().detach().numpy()
+
+            # p0s = np.roll(p0s, 1, axis=0)
 
             factor = 6*max(self.a, self.b)
 
@@ -265,7 +271,6 @@ class Diagnostics:
 
             for i in range(len(centers)):
                 center = centers[i-1]
-            # for i, center in enumerate(np.roll(centers, 1, axis=0)):
                 circle = Point(center).buffer(self.mu)
                 emp_ex_tan, _ = get_tangent(p1s[i-1], circle, factor=factor)
                 emp_re_tan, _ = get_tangent(p0s[i], circle, factor=factor)
@@ -287,8 +292,10 @@ class Diagnostics:
                 # plt.show()
 
             x = np.arange(len(ex_errors)) + 1
-            plt.plot(x, ex_errors, label="Exit Tangent Error")
-            plt.plot(x, re_errors, label="Reenter Tangent Error")
+            plt.plot(x, ex_errors, label=r"$\Delta_1$")
+            plt.plot(x, re_errors, label=r"$\Delta_2$")
+            plt.ylim(0, 0.1)
+            plt.gca().spines[['right', 'top']].set_visible(False)
 
         plt.xticks(x, x)
         plt.legend(loc="best")
@@ -301,7 +308,7 @@ class Diagnostics:
 
         plt.close()
 
-    def landscape(self, fn, n=100, repeat=False, dim=2, img_dir=None, show=True):
+    def landscape(self, fn, n=100, repeat=False, dim=2, img_dir=None, show=True, plot_points=True):
         phi0s = torch.linspace(0, 2*torch.pi, n)
         phi2s = torch.linspace(0, 2*torch.pi, n)
 
@@ -337,14 +344,15 @@ class Diagnostics:
 
             orbit_pairs = pair(self.orbit.phi.detach())
 
-            ax.scatter(orbit_pairs[:, 0],
-                       orbit_pairs[:, 1], c="red", marker="x")
+            if plot_points:
+                ax.scatter(orbit_pairs[:, 0],
+                           orbit_pairs[:, 1], c="red", marker="x")
+
+                for i, (xi, yi) in enumerate(pair(self.orbit.phi.detach())):
+                    plt.annotate(f'{i + 1}', xy=(xi, yi),
+                                 xytext=(1.1*xi, 1.1*yi), c="red")
 
             fig.colorbar(scatter, ax=ax)
-
-            for i, (xi, yi) in enumerate(pair(self.orbit.phi.detach())):
-                plt.annotate(f'{i + 1}', xy=(xi, yi),
-                             xytext=(1.1*xi, 1.1*yi), c="red")
 
         if img_dir is not None:
             plt.savefig(os.path.join(img_dir, "landscape.png"))
@@ -353,6 +361,65 @@ class Diagnostics:
             plt.show()
 
         plt.close()
+
+    def error(self, model, show=True, img_dir=None):
+        train_data_dir = os.path.join(self.data_dir, "validate10k.npy")
+        train_dataset = GeneratingFunctionDataset(train_data_dir)
+        train_loader = DataLoader(
+            train_dataset, batch_size=1024, shuffle=True, pin_memory=True)
+
+        all_targets = []
+        all_outputs = []
+        all_inputs = []
+
+        for inputs, targets in train_loader:
+            output = model(inputs)
+            all_targets.append(targets)
+            all_outputs.append(output)
+            all_inputs.append(inputs)
+
+        all_targets = torch.cat(all_targets).squeeze().detach()
+        all_outputs = torch.cat(all_outputs).squeeze().detach()
+        all_inputs = torch.cat(all_inputs).squeeze().detach()
+
+        error = torch.abs((all_targets - all_outputs)/all_targets)
+
+        idx = values_in_quantile(error, 0.99)
+
+        # scatter plot of error
+        fig, ax = plt.subplots()
+        ax.set_aspect("equal")
+        ax.set_xticks([0, np.pi, 2*np.pi], ["0", "$\pi$", "$2\pi$"])
+        ax.set_yticks([0, np.pi, 2*np.pi], ["0", "$\pi$", "$2\pi$"])
+        ax.set_xlabel(r"$\varphi_0$")
+        ax.set_ylabel(r"$\varphi_2$")
+
+        scatter = ax.scatter(all_inputs[:, 0][idx],
+                             all_inputs[:, 1][idx], c=error[idx])
+
+        cbar = plt.colorbar(scatter, ax=ax)
+        # cbar.ax.yaxis.set_ticklabels([f'{np.exp(v)}' for v in cbar.ax.yaxis.get_ticklocs()])
+        #cbar.ax.yaxis.set_ticks(np.arange(0, np.log(error.max()) + 1, 1))
+        #cbar.ax.yaxis.set_ticklabels([f'{int(np.exp(v)):,}' for v in cbar.ax.yaxis.get_ticklocs()])
+
+        if img_dir is not None:
+            plt.savefig(os.path.join(img_dir, "error.png"))
+
+        if show:
+            plt.show()
+
+        # histogram plot of error
+        fig, ax = plt.subplots()
+
+        ax.hist(error.detach()[idx], color="navy", alpha=.5, edgecolor="navy", linewidth=.5)
+        ax.set_xlabel(r"$| G - \hat{G}|$")
+        ax.set_ylabel("# points")
+
+        if img_dir is not None:
+            plt.savefig(os.path.join(img_dir, "error_hist.png"))
+
+        if show:
+            plt.show()
 
     def frequency(self):
         print("DIAGNOSTIC frequency...")
