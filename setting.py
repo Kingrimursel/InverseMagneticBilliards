@@ -1,6 +1,6 @@
 import torch
 import numpy as np
-from shapely.geometry import Point
+from shapely.geometry import Point, Polygon
 from shapely import affinity
 from scipy.special import ellipeinc
 import matplotlib as mpl
@@ -10,16 +10,31 @@ from conf import RES_TABLE
 
 
 class Table:
-    def __init__(self, a=1, b=1):
+    def __init__(self, a=1, b=1, k=None):
         """
         An elliptical billiards table with main axes a and b
         """
 
         self.a = a
         self.b = b
+        self.k = k
 
-        self.polygon = affinity.scale(
-            Point(0, 0).buffer(1, resolution=RES_TABLE), a, b)
+        self.polygon = self.generate_polygon()
+
+    def generate_polygon(self):
+        if self.k is None:
+            polygon = affinity.scale(Point(0, 0).buffer(
+                1, resolution=RES_TABLE), self.a, self.b)
+            
+        else:
+            n_samples = 4001
+
+            polygon = Polygon([tuple(coord) for coord in self.boundary(np.linspace(0, 2*np.pi, n_samples))])
+
+        return polygon
+
+    def drop(self, t):
+        return (self.a*np.cos(t), self.b*np.sin(t) + self.k/2*np.sin(2*t))
 
     def get_other_collision(self, linestring, p0):
         """
@@ -29,46 +44,27 @@ class Table:
 
         intersection = self.polygon.intersection(linestring)
 
-        # from matplotlib import pyplot as plt
-        # fig, ax = plt.subplots()
-        # ax.plot(*self.polygon.exterior.xy)
-        # ax.plot(*linestring.xy)
-        # ax.set_aspect("equal")
-        # plt.show()
-
         # make sure to return the intersection that is further away from p0
         if len(intersection.coords) == 2:
             if np.linalg.norm(p0 - intersection.coords[0]) > np.linalg.norm(p0 - intersection.coords[1]):
                 return np.array(intersection.coords[0])
             else:
                 return np.array(intersection.coords[1])
-            #return np.array(intersection.coords[1])
         else:
             return np.array([None, None])
 
-        try:
-            if np.linalg.norm(intersection.coords[0] - test) >= np.linalg.norm(intersection.coords[1] - test):
-                print("ALARM")
-        except:
-            from matplotlib import pyplot as plt
-            fig, ax = plt.subplots()
-            ax.plot(*self.polygon.exterior.xy)
-            ax.plot(*linestring.xy)
-            ax.set_aspect("equal")
-            plt.show()
-
-        return np.array(intersection.coords[1])
-
-        # t = (- p[0]*v[0]/self.a**2 - p[1]*v[1]/self.b**2 + np.sqrt(
-        #    self.b**2*v[0]**2-p[1]**2*v[0]**2+2*p[0]*p[1]*v[0]*v[1]+self.a**2*v[1]**2 - p[0]**2*v[1]**2)/(self.a*self.b))/(v[0]**2/self.a**2 + v[1]**2/self.b**2)
-
-        # return t
-
     def boundary(self, phi):
-        if torch.is_tensor(phi):
-            return torch.stack([self.a*torch.cos(phi), self.b*torch.sin(phi)]).T
+        if self.k is None:
+            if torch.is_tensor(phi):
+                return torch.stack([self.a*torch.cos(phi), self.b*torch.sin(phi)]).T
+            else:
+                # TODO: is this ever called? I think this returns the wrong shape!!
+                return np.array([self.a*np.cos(phi), self.b*np.sin(phi)])
         else:
-            return np.array([self.a*np.cos(phi), self.b*np.sin(phi)])
+            if torch.is_tensor(phi):
+                return torch.stack([self.a*torch.cos(phi), self.b*torch.sin(phi) + self.k/2*torch.sin(2*phi)]).T
+            else:
+                return np.stack([self.a*np.cos(phi), self.b*np.sin(phi) + self.k/2*np.sin(2*phi)]).T
 
     def tangent(self, phi):
         if torch.is_tensor(phi):

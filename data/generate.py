@@ -10,7 +10,7 @@ from conf import DATADIR
 from util import generate_readme, mkdir
 
 
-def generate_dataset(a, b, mu, n_samples, filename, cs="Birkhoff", type="ReturnMap", mode="classic", subdir=""):
+def generate_dataset(a, b, k, mu, n_samples, filename, cs="Birkhoff", type="ReturnMap", mode="classic", subdir=""):
     """Automatically generate a return map dataset
 
     Args:
@@ -35,7 +35,7 @@ def generate_dataset(a, b, mu, n_samples, filename, cs="Birkhoff", type="ReturnM
         coordinates = np.vstack([phis, thetas]).T
 
         # actually calculate action
-        action = Action(a, b, mu, mode=mode, cs=cs)
+        action = Action(a, b, k, mu, mode=mode, cs=cs)
 
         phi0s = []
         phi2s = []
@@ -51,8 +51,7 @@ def generate_dataset(a, b, mu, n_samples, filename, cs="Birkhoff", type="ReturnM
 
             # polygonial approximation is not exact
             if phi2 is not None and G is not None:
-                # print(theta0, phi0, phi0*180/np.pi, phi2*180/np.pi, G)
-                # action.returnmap.plot(phi0, theta0)
+                #action.returnmap.plot(phi0, theta0)
                 phi0s.append(phi0)
                 phi2s.append(phi2)
                 Gs.append(G)
@@ -64,4 +63,4 @@ def generate_dataset(a, b, mu, n_samples, filename, cs="Birkhoff", type="ReturnM
 
         # generate readme
         generate_readme(
-            data_dir, f"a={a},\nb={b},\nmu={mu},\nn_samples={n_samples}")
+            data_dir, f"a={a},\nb={b},\nk={k},\nmu={mu},\nn_samples={n_samples}")

@@ -8,7 +8,6 @@ from dynamics import Orbit
 from helper import Training, Minimizer, Diagnostics
 from conf import MODELDIR, GRAPHICSDIR, TODAY
 from physics import Action
-from setting import Table
 from util import batch_jacobian, get_todays_graphics_dir, mkdir, grad
 
 
@@ -20,7 +19,7 @@ def training_procedure(**kwargs):
         "mu"), kwargs.get("num_epochs"), kwargs.get("batch_size"))
 
 
-def minimization_procedure(a, b, mu, n_epochs=100, dir=None, helicity="pos", exact=False, frequency=(1, 1), show=True, plot_points=True):
+def minimization_procedure(a, b, k, mu, n_epochs=100, dir=None, helicity="pos", exact=False, frequency=(1, 1), show=True, plot_points=True):
     # load model
     filename = os.path.join(MODELDIR, dir, "model.pth")
 
@@ -47,6 +46,7 @@ def minimization_procedure(a, b, mu, n_epochs=100, dir=None, helicity="pos", exa
     # initialize an orbit
     orbit = Orbit(a=a,
                   b=b,
+                  k=k,
                   mu=mu,
                   frequency=frequency,
                   mode=mode,
@@ -56,6 +56,7 @@ def minimization_procedure(a, b, mu, n_epochs=100, dir=None, helicity="pos", exa
     # initialize and execute minimizer
     minimizer = Minimizer(a,
                           b,
+                          k,
                           orbit,
                           G,
                           n_epochs=n_epochs,
@@ -67,6 +68,7 @@ def minimization_procedure(a, b, mu, n_epochs=100, dir=None, helicity="pos", exa
     # initialize diagnostics
     diagnostics = Diagnostics(a,
                               b,
+                              k,
                               mu,
                               orbit=orbit,
                               type=type,

@@ -123,10 +123,11 @@ class Training:
 
 
 class Minimizer:
-    def __init__(self, a, b, orbit, action_fn, n_epochs=50, frequency=()):
+    def __init__(self, a, b, k, orbit, action_fn, n_epochs=50, frequency=()):
         self.a = a
         self.b = b
-        self.table = Table(a=a, b=b)
+        self.k = k
+        self.table = Table(a=a, b=b, k=k)
         self.orbit = orbit
         self.n_epochs = n_epochs
         self.optimizer = torch.optim.Adam([orbit.phi], lr=1e-3)
@@ -190,7 +191,7 @@ class Minimizer:
 
 
 class Diagnostics:
-    def __init__(self, a, b, mu, orbit=None, cs="custom", type="ReturnMap", mode="classic", subdir="", *args, **kwargs):
+    def __init__(self, a, b, k, mu, orbit=None, cs="custom", type="ReturnMap", mode="classic", subdir="", *args, **kwargs):
         self.orbit = orbit
 
         self.cs = cs
@@ -199,9 +200,10 @@ class Diagnostics:
         self.subdir = subdir
         self.a = a
         self.b = b
+        self.k = k
         self.mu = mu
 
-        self.table = Table(a=self.a, b=self.b)
+        self.table = Table(a=self.a, b=self.b, k=self.k)
 
         self.data_dir = os.path.join(
             DATADIR, self.type, self.cs, self.mode, self.subdir)
@@ -412,7 +414,7 @@ class Diagnostics:
         fig, ax = plt.subplots()
 
         ax.hist(error.detach()[idx], color="navy", alpha=.5, edgecolor="navy", linewidth=.5)
-        ax.set_xlabel(r"$| G - \hat{G}|$")
+        ax.set_xlabel(r"$|\frac{ G - \hat{G}}{\hat[G}}|$")
         ax.set_ylabel("# points")
 
         if img_dir is not None:

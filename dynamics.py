@@ -18,7 +18,7 @@ from conf import RES_LCIRC
 
 
 class Orbit:
-    def __init__(self, a, b, mu, frequency=(), mode="classic", init="random", cs="Birkhoff", helicity="pos", *args, **kargs):
+    def __init__(self, a, b, k, mu, frequency=(), mode="classic", init="random", cs="Birkhoff", helicity="pos", *args, **kargs):
         """An inverse magnetic orbit
 
         Args:
@@ -40,7 +40,7 @@ class Orbit:
         else:
             self.m, self.n = 0, 0
 
-        self.table = Table(a=a, b=b)
+        self.table = Table(a=a, b=b, k=k)
 
         self.s = []
         self.phi = []
@@ -155,7 +155,6 @@ class Orbit:
 
                 # get larmor circle
                 # TODO: implement base class get_other_point and then implement get_reenter_point using that
-                # TODO: controll resolution
                 lcirc = Point(vertex).buffer(self.mu, resolution=RES_LCIRC)
 
                 # obtain exit point corresponding to the given reenter point and larmor circle
@@ -209,7 +208,9 @@ class Orbit:
         fig.tight_layout(pad=0.)
         plt.margins(0.01, 0.01)
 
-        ax.add_patch(self.table.get_patch(fill="white"))
+        #ax.add_patch(self.table.get_patch(fill="white"))
+        ax.plot(*self.table.polygon.exterior.xy, c="black")
+
         ax.set_xlim([- max(self.table.a, self.table.b) - 0.5,
                     max(self.table.a, self.table.b) + 0.5])
         ax.set_ylim([- max(self.table.a, self.table.b) - 0.5,
@@ -269,13 +270,14 @@ class Orbit:
 
 
 class ReturnMap:
-    def __init__(self, a, b, mu, mode="classic", *args, **kwargs):
+    def __init__(self, a, b, k, mu, mode="classic", *args, **kwargs):
         self.a = a
         self.b = b
+        self.k = k
         self.mu = mu
         self.mode = mode
 
-        self.table = Table(a=a, b=b)
+        self.table = Table(a=a, b=b, k=k)
 
     def get_chord(self, p, v):
         chord = LineString([tuple(p-10*v), tuple(p+10*v)])

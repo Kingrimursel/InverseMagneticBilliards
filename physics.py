@@ -17,17 +17,19 @@ class DiscreteAction:
 
 
 class Action:
-    def __init__(self, a, b, mu, mode="classic", *args, **kwargs):
+    def __init__(self, a, b, k, mu, mode="classic", *args, **kwargs):
         self.mode = mode
         self.a = a
         self.b = b
+        self.k = k
         self.mu = mu
         self.kwargs = kwargs
 
-        self.table = Table(a=a, b=b)
+        self.table = Table(a=a, b=b, k=k)
 
         self.returnmap = ReturnMap(self.a,
                                    self.b,
+                                   self.k,
                                    self.mu,
                                    frequency=(1, 1),
                                    mode=self.mode,
