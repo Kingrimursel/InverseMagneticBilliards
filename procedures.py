@@ -95,8 +95,20 @@ def minimization_procedure(a, b, k, mu, n_epochs=100, dir=None, helicity="pos", 
     diagnostics.error(G, show=show, img_dir=img_dir)
 
     # diagnostics.landscape(grad(G_hat, norm=True), n=150)
-    diagnostics.landscape(G, n=150, img_dir=img_dir,
-                          show=show, plot_points=plot_points)
+    diagnostics.landscape(G,
+                          img_dir=img_dir,
+                          show=show,
+                          plot_points=plot_points)
+
+    # plot the gradient analysis
+    diagnostics.landscape(minimizer.discrete_action.grad_norm,
+                          img_dir=img_dir,
+                          show=show, 
+                          plot_points=plot_points,
+                          filename="landsacpe_grad_norm.png")
+
+    #grad_loss = torch.linalg.norm(batch_jacobian(
+    #    self.discrete_action, self.orbit.phi))
 
     # plot the minimization loss
     minimizer.plot(img_dir=img_dir, show=show)

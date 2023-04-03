@@ -3,7 +3,7 @@ import numpy as np
 
 from setting import Table
 from dynamics import ReturnMap
-from util import pair, circ_int_params, area_overlap
+from util import batch_jacobian, pair, circ_int_params, area_overlap
 
 
 class DiscreteAction:
@@ -14,6 +14,13 @@ class DiscreteAction:
     def __call__(self, phis):
         action = torch.sum(self.action_fn(pair(phis)))
         return action
+
+    def grad_norm(self, x, ax=None):
+        jac = batch_jacobian(self.__call__, x)
+        if jac.ndim == 1:
+            return torch.linalg.norm(jac)
+        else:
+            return torch.linalg.norm(jac, dim=1)
 
 
 class Action:
@@ -34,7 +41,7 @@ class Action:
                                    frequency=(1, 1),
                                    mode=self.mode,
                                    **self.kwargs)
-        
+
     def exact(self, phis):
         p0 = self.table.boundary(phis[:, 0])
         p2 = self.table.boundary(phis[:, 1])

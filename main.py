@@ -7,18 +7,30 @@ if __name__ == "__main__":
     # table properties
     a = 2
     b = 1
-    k = 1/2
+    k = 1/3
+
+    assert a >= b, "a must be greater than or equal to b"
+    assert a > 0 and b > 0, "a and b must be positive"
+    assert k is None or (k > 0 and k < b), "k must be positive and less than b"
 
     # magnetic properties
     if k is None:
         mu = 1/5
     else:
-        mu = 1/10
+        # mu = (b-k)**2/a
+        mu = 1/5
 
     cs = "custom"
     mode = "inversemagnetic"
     type = "generatingfunction"
-    subdir = "drop"
+
+    if a == b:
+        subdir = "circle"
+    else:
+        if k is None:
+            subdir = "ellipse"
+        else:
+            subdir = "drop"
 
     execs = ["minimize"]
     for exec in execs:
@@ -47,8 +59,8 @@ if __name__ == "__main__":
                                save=True,
                                batch_size=512)
         elif exec == "minimize":
-            frequencies = [(1, 7), (2, 7), (3, 7), (4, 7), (5, 7), (6, 7)]
-            # frequencies = [(6, 7)]
+            # frequencies = [(1, 7), (2, 7), (3, 7), (4, 7), (5, 7), (6, 7)]
+            frequencies = [(4, 7)]
 
             for frequency in frequencies:
                 minimization_procedure(
@@ -60,8 +72,8 @@ if __name__ == "__main__":
                     show=False,
                     frequency=frequency,
                     helicity="pos",
-                    plot_points=True,
+                    plot_points=False,
                     n_epochs=2000,
                     # dir=os.path.join(type, cs, mode, subdir, "2023-03-13")
-                    dir=os.path.join(type, cs, mode, subdir, "2023-04-01")
+                    dir=os.path.join(type, cs, mode, subdir, "2023-04-03")
                 )

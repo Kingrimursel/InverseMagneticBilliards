@@ -208,7 +208,7 @@ class Orbit:
         fig.tight_layout(pad=0.)
         plt.margins(0.01, 0.01)
 
-        #ax.add_patch(self.table.get_patch(fill="white"))
+        # ax.add_patch(self.table.get_patch(fill="white"))
         ax.plot(*self.table.polygon.exterior.xy, c="black")
 
         ax.set_xlim([- max(self.table.a, self.table.b) - 0.5,

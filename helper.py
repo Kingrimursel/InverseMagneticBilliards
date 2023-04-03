@@ -151,8 +151,9 @@ class Minimizer:
             pb.set_postfix({"Loss": grad_loss.item()})
 
             # calculate the gradient loss
-            grad_loss = torch.linalg.norm(batch_jacobian(
-                self.discrete_action, self.orbit.phi))
+            # grad_loss = self.discrete_action.grad_norm(self.orbit.phi)
+            grad_loss = torch.sum(self.discrete_action.grad_norm(self.orbit.phi))
+
 
             # grad_loss = torch.abs(batch_jacobian(self.discrete_action, self.orbit.phi).sum())
 
@@ -310,7 +311,7 @@ class Diagnostics:
 
         plt.close()
 
-    def landscape(self, fn, n=100, repeat=False, dim=2, img_dir=None, show=True, plot_points=True):
+    def landscape(self, fn, n=150, repeat=False, dim=2, img_dir=None, show=True, plot_points=True, filename="landscape.png"):
         phi0s = torch.linspace(0, 2*torch.pi, n)
         phi2s = torch.linspace(0, 2*torch.pi, n)
 
@@ -357,7 +358,7 @@ class Diagnostics:
             fig.colorbar(scatter, ax=ax)
 
         if img_dir is not None:
-            plt.savefig(os.path.join(img_dir, "landscape.png"))
+            plt.savefig(os.path.join(img_dir, filename))
 
         if show:
             plt.show()
@@ -414,7 +415,7 @@ class Diagnostics:
         fig, ax = plt.subplots()
 
         ax.hist(error.detach()[idx], color="navy", alpha=.5, edgecolor="navy", linewidth=.5)
-        ax.set_xlabel(r"$|\frac{ G - \hat{G}}{\hat[G}}|$")
+        ax.set_xlabel(r"$|\frac{ G - \hat{G}}{\hat{G}}|$")
         ax.set_ylabel("# points")
 
         if img_dir is not None:
