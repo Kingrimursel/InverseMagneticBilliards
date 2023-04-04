@@ -18,7 +18,7 @@ from conf import RES_LCIRC
 
 
 class Orbit:
-    def __init__(self, a, b, k, mu, frequency=(), mode="classic", init="random", cs="Birkhoff", helicity="pos", *args, **kargs):
+    def __init__(self, a, b, k, mu, frequency=(), mode="classic", init="random", helicity="pos", *args, **kargs):
         """An inverse magnetic orbit
 
         Args:
@@ -27,11 +27,9 @@ class Orbit:
             frequency (tuple, optional): frequency of periodic orbit considered. Defaults to ().
             mode (str, optional): classic of birkhoff billiards. Defaults to "classic".
             init (str, optional): how to initialize the orbit. Defaults to "random".
-            cs (str, optional): coordinate system, whether classic or birkhoff. Defaults to "Birkhoff".
         """
 
         self.mode = mode
-        self.cs = cs
         self.mu = mu
         self.helicity = helicity
 

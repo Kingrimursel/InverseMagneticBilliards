@@ -323,8 +323,8 @@ def values_in_quantile(x, q=0):
     return idx
 
 
-def get_todays_graphics_dir(type, cs, mode, subdir, add=""):
-    img_dir = os.path.join(GRAPHICSDIR, type, cs, mode, subdir, TODAY, add)
+def get_todays_graphics_dir(mode, subdir, add=""):
+    img_dir = os.path.join(GRAPHICSDIR, mode, subdir, TODAY, add)
     mkdir(img_dir)
 
     return img_dir

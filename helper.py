@@ -25,8 +25,6 @@ from conf import device, MODELDIR, DATADIR, TODAY
 class Training:
     def __init__(self,
                  num_epochs=100,
-                 cs="custom",
-                 type="ReturnMap",
                  mode="classic",
                  train_dataset="train50k.npy",
                  batch_size=128,
@@ -35,9 +33,7 @@ class Training:
                  **kwargs):
 
         self.num_epochs = num_epochs
-        self.cs = cs
         self.subdir = subdir
-        self.type = type
         self.mode = mode
         self.train_dataset = train_dataset
         self.save = save
@@ -47,41 +43,24 @@ class Training:
         self.training_loss = 0.
         self.validation_loss = 0.
 
-        self.data_dir = os.path.join(
-            DATADIR, self.type, self.cs, self.mode, self.subdir)
+        self.data_dir = os.path.join(DATADIR, self.mode, self.subdir)
 
         if self.save:
-            self.model_dir = os.path.join(
-                MODELDIR, self.type, self.cs, self.mode, subdir, TODAY)
+            self.model_dir = os.path.join(MODELDIR, self.mode, subdir, TODAY)
             mkdir(self.model_dir)
         else:
             self.model_dir = None
 
     def train(self):
-        if self.type == "ReturnMap":
-            Dataset = ReturnMapDataset
-            input_dim = 2
-            output_dim = 2
-        elif self.type == "ImplicitU":
-            Dataset = ImplicitUDataset
-            input_dim = 2
-            output_dim = 1
-        elif self.type == "generatingfunction":
-            Dataset = GeneratingFunctionDataset
-            input_dim = 2
-            output_dim = 1
-        else:
-            return
 
         # datasets
         train_data_dir = os.path.join(self.data_dir, self.train_dataset)
         print(f"Loading Training Dataset {train_data_dir}")
-        train_dataset = Dataset(train_data_dir)
-        validation_dataset = Dataset(
-            os.path.join(self.data_dir, "validate10k.npy"))
+        train_dataset = GeneratingFunctionDataset(train_data_dir)
+        validation_dataset = GeneratingFunctionDataset(os.path.join(self.data_dir, "validate10k.npy"))
 
         # model
-        model = ReLuModel(input_dim=input_dim, output_dim=output_dim)
+        model = ReLuModel(input_dim=2, output_dim=1)
 
         # train
         model, training_loss, validation_loss = train_model(model,
@@ -98,12 +77,10 @@ class Training:
         self.validation_loss = validation_loss
 
     def plot_loss(self):
-        img_dir = get_todays_graphics_dir(
-            self.type, self.cs, self.mode, self.subdir)
+        img_dir = get_todays_graphics_dir(self.mode, self.subdir)
         graphic_filename = os.path.join(img_dir, "training_loss.png")
 
         fig = plt.figure()
-        plt.suptitle(self.type)
         plt.plot(self.training_loss, label="train", c="navy")
         plt.plot(self.validation_loss, label="validation", c="pink")
         plt.yscale("log")
@@ -117,9 +94,9 @@ class Training:
 
         plt.close()
 
-    def generate_readme(self, a, b, mu, num_epochs, batch_size):
+    def generate_readme(self, a, b, k, mu, num_epochs, batch_size):
         generate_readme(
-            self.model_dir, f"a={a},\nb={b},\nmu={mu}\nnum_epochs={num_epochs}\nbatch_size={batch_size}")
+            self.model_dir, f"a={a},\nb={b},\nmu={mu}\nk={k}\nnum_epochs={num_epochs}\nbatch_size={batch_size}")
 
 
 class Minimizer:
@@ -131,6 +108,7 @@ class Minimizer:
         self.orbit = orbit
         self.n_epochs = n_epochs
         self.optimizer = torch.optim.Adam([orbit.phi], lr=1e-3)
+        # self.optimizer = torch.optim.SGD([orbit.phi], lr=1e-2)
         self.action_fn = action_fn
         self.frequency = frequency
         self.m, self.n = frequency
@@ -192,11 +170,9 @@ class Minimizer:
 
 
 class Diagnostics:
-    def __init__(self, a, b, k, mu, orbit=None, cs="custom", type="ReturnMap", mode="classic", subdir="", *args, **kwargs):
+    def __init__(self, a, b, k, mu, orbit=None, mode="classic", subdir="", *args, **kwargs):
         self.orbit = orbit
 
-        self.cs = cs
-        self.type = type
         self.mode = mode
         self.subdir = subdir
         self.a = a
@@ -206,8 +182,7 @@ class Diagnostics:
 
         self.table = Table(a=self.a, b=self.b, k=self.k)
 
-        self.data_dir = os.path.join(
-            DATADIR, self.type, self.cs, self.mode, self.subdir)
+        self.data_dir = os.path.join(DATADIR, self.mode, self.subdir)
 
     def reflection_angle(self, unit="rad"):
         us = self.orbit.get_u()
@@ -453,8 +428,7 @@ class Diagnostics:
 
         model = ReLuModel(input_dim=2, output_dim=1)
 
-        data_dir = os.path.join(
-            DATADIR, self.type, self.cs, self.mode, self.subdir)
+        data_dir = os.path.join(DATADIR, self.mode, self.subdir)
 
         validation_dataset = GeneratingFunctionDataset(
             os.path.join(data_dir, "validate10k.npy"))

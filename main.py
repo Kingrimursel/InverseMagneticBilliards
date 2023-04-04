@@ -20,9 +20,7 @@ if __name__ == "__main__":
         # mu = (b-k)**2/a
         mu = 1/5
 
-    cs = "custom"
-    mode = "inversemagnetic"
-    type = "generatingfunction"
+    mode = "classic"
 
     if a == b:
         subdir = "circle"
@@ -41,18 +39,14 @@ if __name__ == "__main__":
                              mu,
                              100000,
                              "train100k.npy",
-                             cs=cs,
                              subdir=subdir,
-                             mode=mode,
-                             type=type)
+                             mode=mode)
         elif exec == "train":
             training_procedure(a=a,
                                b=b,
                                k=k,
                                mu=mu,
                                num_epochs=256,
-                               type=type,
-                               cs=cs,
                                subdir=subdir,
                                mode=mode,
                                train_dataset="train100k.npy",
@@ -60,7 +54,7 @@ if __name__ == "__main__":
                                batch_size=512)
         elif exec == "minimize":
             # frequencies = [(1, 7), (2, 7), (3, 7), (4, 7), (5, 7), (6, 7)]
-            frequencies = [(4, 7)]
+            frequencies = [(1, 7)]
 
             for frequency in frequencies:
                 minimization_procedure(
@@ -72,8 +66,9 @@ if __name__ == "__main__":
                     show=False,
                     frequency=frequency,
                     helicity="pos",
-                    plot_points=False,
+                    plot_points=True,
                     n_epochs=2000,
-                    # dir=os.path.join(type, cs, mode, subdir, "2023-03-13")
-                    dir=os.path.join(type, cs, mode, subdir, "2023-04-03")
+                    # dir=os.path.join(mode, subdir, "2023-03-13")
+                    # dir=os.path.join(mode, subdir, "2023-04-03")
+                    dir=os.path.join(mode, subdir, "2023-04-04")
                 )

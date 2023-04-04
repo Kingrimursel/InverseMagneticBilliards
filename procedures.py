@@ -16,15 +16,13 @@ def training_procedure(**kwargs):
     training.train()
     training.plot_loss()
     training.generate_readme(kwargs.get("a"), kwargs.get("b"), kwargs.get(
-        "mu"), kwargs.get("num_epochs"), kwargs.get("batch_size"))
+        "mu"), kwargs.get("k"), kwargs.get("num_epochs"), kwargs.get("batch_size"))
 
 
 def minimization_procedure(a, b, k, mu, n_epochs=100, dir=None, helicity="pos", exact=False, frequency=(1, 1), show=True, plot_points=True):
     # load model
     filename = os.path.join(MODELDIR, dir, "model.pth")
 
-    type = dir.split("/")[-5]
-    cs = dir.split("/")[-4]
     mode = dir.split("/")[-3]
     subdir = dir.split("/")[-2]
 
@@ -37,7 +35,7 @@ def minimization_procedure(a, b, k, mu, n_epochs=100, dir=None, helicity="pos", 
         if mode != "classic":
             print("ERROR: Exact action only available for classic mode")
             exit(1)
-        G = Action(a, b, mu, mode=mode, cs=cs).exact
+        G = Action(a, b, k, mu, mode=mode).exact
     else:
         G = G_hat
 
@@ -71,8 +69,6 @@ def minimization_procedure(a, b, k, mu, n_epochs=100, dir=None, helicity="pos", 
                               k,
                               mu,
                               orbit=orbit,
-                              type=type,
-                              cs=cs,
                               mode=mode,
                               subdir=subdir)
 
@@ -83,8 +79,7 @@ def minimization_procedure(a, b, k, mu, n_epochs=100, dir=None, helicity="pos", 
         f"Expected Frequency: (m, n) = {frequency}. Observed Frequency: (m, n) = {observed_frequency}")
 
     # plot the orbit
-    img_dir = get_todays_graphics_dir(
-        type, cs, mode, subdir, add=str(frequency))
+    img_dir = get_todays_graphics_dir(mode, subdir, add=str(frequency))
 
     if mode == "classic":
         img_dir = os.path.join(img_dir, "exact" if exact else "approx")
@@ -103,11 +98,11 @@ def minimization_procedure(a, b, k, mu, n_epochs=100, dir=None, helicity="pos", 
     # plot the gradient analysis
     diagnostics.landscape(minimizer.discrete_action.grad_norm,
                           img_dir=img_dir,
-                          show=show, 
+                          show=show,
                           plot_points=plot_points,
                           filename="landsacpe_grad_norm.png")
 
-    #grad_loss = torch.linalg.norm(batch_jacobian(
+    # grad_loss = torch.linalg.norm(batch_jacobian(
     #    self.discrete_action, self.orbit.phi))
 
     # plot the minimization loss
