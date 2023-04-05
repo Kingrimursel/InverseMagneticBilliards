@@ -47,8 +47,6 @@ class Orbit:
         # initialize the orbit
         if init == "random":
             self.phi = 2*torch.pi*torch.rand(self.n, requires_grad=True)
-            # self.phi = torch.tensor(np.random.uniform(
-            #    low=offset, high=2*np.pi-offset, size=self.n).astype("float32"), requires_grad=True)
         elif init == "uniform":
             indices = 1 + \
                 torch.remainder(((self.m)*torch.arange(self.n)), self.n)
@@ -60,7 +58,7 @@ class Orbit:
                 self.phi = torch.flip(self.phi, dims=(0,))
 
             offset_phi = 2*torch.pi*torch.rand(1).repeat(self.n)
-            self.phi += offset_phi
+            # self.phi += offset_phi
 
             self.phi.requires_grad_()
         else:
@@ -116,6 +114,7 @@ class Orbit:
         """
 
         raise NotImplementedError
+
 
     def get_exit_points(self):
         """Get the exit points and the corresponding Larmor centers of an orbit given its reenter points
@@ -199,6 +198,7 @@ class Orbit:
         return np.array(p1s), np.array(centers)
 
     def plot(self, img_dir=None, show=True, with_tangents=False):
+        print("DIAGNOSTIC orbit...")
         fig, ax = plt.subplots(figsize=(5, 5))
 
         ax.set_aspect("equal")
@@ -240,6 +240,7 @@ class Orbit:
 
         elif self.mode == "inversemagnetic":
             points1, centers = self.get_exit_points()
+            # points1, centers = self.table.get_exit_points(self.phi.detach().numpy(), self.mu)
 
             ax.scatter(points1[:, 0], points1[:, 1], c="navy")
             ax.scatter(centers[:, 0], centers[:, 1], c="magenta")
@@ -311,10 +312,6 @@ class ReturnMap:
 
                 # get reenter point
                 p2 = self.table.get_reenter_point(self.mu, center, p1)
-
-                # TODO: vielleicht eine gemeinsame funktion um die intersection points zu bekommen, und die dann für get_reenter_point and get_parameters nutzen
-                # TODO: function for larmor circle? Or even a class?
-
             else:
                 center = [None, None]
                 p2 = [None, None]

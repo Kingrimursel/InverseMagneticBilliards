@@ -5,8 +5,8 @@ from shapely import affinity
 from scipy.special import ellipeinc
 import matplotlib as mpl
 
-from util import solve_polynomial, get_polar_angle
-from conf import RES_TABLE
+from util import solve_polynomial, get_polar_angle, get_tangent, is_left_of
+from conf import RES_TABLE, RES_LCIRC
 
 
 class Table:
@@ -59,7 +59,7 @@ class Table:
                 return torch.stack([self.a*torch.cos(phi), self.b*torch.sin(phi)]).T
             else:
                 # TODO: is this ever called? I think this returns the wrong shape!!
-                return np.array([self.a*np.cos(phi), self.b*np.sin(phi)])
+                return np.array([self.a*np.cos(phi), self.b*np.sin(phi)]).T
         else:
             if torch.is_tensor(phi):
                 return torch.stack([self.a*torch.cos(phi), self.b*torch.sin(phi) + self.k/2*torch.sin(2*phi)]).T
@@ -126,3 +126,87 @@ class Table:
             reenter_point = [None, None]
 
         return reenter_point
+    
+
+    """
+    def get_exit_points(self, phi2, mu):
+        ""Get the exit points and the corresponding Larmor centers of an orbit given its reenter points
+
+        Returns:
+            np.array, np.array: The exit points and the centers
+        ""
+
+        # get reenter points and append the first one to the end because of periodicity
+        p2s = self.boundary(phi2)
+        p2s = np.vstack([p2s, p2s[0]])
+
+        centers = []
+        p1s = []
+
+        # want to find the exit point for all exit points
+        for i, p2 in enumerate(p2s):
+            # initial point
+            p0 = p2s[i-1]
+
+            # skip first point
+            if i == 0:
+                continue
+
+            distances_i = []
+            centers_i = []
+            p1s_i = []
+
+            # all vertices of a circle with radius mu around the reenter point are candidates for the larmor center
+            vertices = Point(p2).buffer(mu).exterior.coords
+
+            # loop over all vertices, checking which corresponding larmor circle comes closest to the real one
+            for vertex in vertices:
+                vertex = np.array(vertex)
+
+                # get larmor circle
+                # TODO: implement base class get_other_point and then implement get_reenter_point using that
+                lcirc = Point(vertex).buffer(mu, resolution=RES_LCIRC)
+
+                # obtain exit point corresponding to the given reenter point and larmor circle
+                p1 = self.get_reenter_point(mu, vertex, p2)
+
+                # if trajectory does not twist properly, continue. Also there could be problems with polygonial approximation
+                if p1[0] is None or not is_left_of(p1-p0, vertex-p0):
+                    distances_i.append(np.inf)
+                    centers_i.append([None, None])
+                    p1s_i.append([None, None])
+                    continue
+
+                # get two closes vertices of larmor circle to exit point
+                # lcirc_coords = np.array(lcirc.exterior.coords)[:-1]
+                # distances_vertices = np.array(
+                #    [Point(p1).distance(Point(p)) for p in lcirc_coords])
+                # closest_vertices = lcirc_coords[np.argpartition(
+                #    distances_vertices, 1)[0:2]]
+
+                # approximate the larmor circle's tangent at the exit point
+                # tangent = closest_vertices[0] - closest_vertices[1]
+                # tangent = tangent/np.linalg.norm(tangent)
+
+                # define the chord that goes through the exit point and is parallel to the approximated tangent
+                # chord = LineString([tuple(closest_vertices[0] - factor*tangent),
+                #                   tuple(closest_vertices[0] + factor*tangent)])
+
+                _, chord = get_tangent(
+                    p1, lcirc, factor=6*max(self.a, self.b))
+
+                # calculate distance between chord and previous reenter point
+                dist_chord = chord.distance(Point(p0))
+
+                # only consider the vertex if the map twists correctly
+                distances_i.append(dist_chord)
+                centers_i.append(vertex)
+                p1s_i.append(p1)
+
+            # find the best approximation
+            idx = np.argmin(distances_i)
+            centers.append(centers_i[idx])
+            p1s.append(p1s_i[idx])
+
+        return np.array(p1s), np.array(centers)
+    """

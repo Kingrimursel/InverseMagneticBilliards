@@ -100,8 +100,13 @@ def angle_between(v1, v2):
 
 
 def pair(x, periodic=True):
-    pairs = torch.cat((torch.unsqueeze(x, dim=1),
-                       torch.unsqueeze(torch.roll(x, -1), dim=1)), 1)
+    if torch.is_tensor(x):
+        pairs = torch.cat((torch.unsqueeze(x, dim=1),
+                           torch.unsqueeze(torch.roll(x, -1), dim=1)), 1)
+
+    else:
+        pairs = np.concatenate(
+            (np.expand_dims(x, axis=1), np.expand_dims(np.roll(x, -1), axis=1)), axis=1)
 
     if not periodic:
         pairs = pairs[:-1]
@@ -126,27 +131,37 @@ def batch_hessian(f, input, exact=True):
     return hes
 
 
-def batch_jacobian(f, input):
+def finite_difference(f, x, eps=1e-3, index=0):
+    h = torch.zeros_like(x)
+    h[index] = eps
+    return (f(x + h) - f(x - h)) / (2*eps)
+
+def batch_jacobian(f, input, approx=False):
     """
     Compute the diagonal entries of the jacobian of f with respect to x
     :param f: the function
     :param x: where it is to be evaluated
+    :param approx: if the jacobian should be approximated using finite differences
     :return: diagonal of df/dx. First dimension is the derivative
     """
 
-    # compute vectorized jacobian. For curvature because of nested derivatives, for some of the backward functions
-    # the forward mode AD is not implemented
-    if input.ndim == 1:
-        try:
-            jac = jacfwd(f)(input)
-        except NotImplementedError:
-            jac = jacrev(f)(input)
-
-    else:
-        try:
-            jac = vmap(jacfwd(f), in_dims=(0,))(input)
-        except NotImplementedError:
-            jac = vmap(jacrev(f), in_dims=(0,))(input)
+    if approx:
+        jac = [finite_difference(f, input, index=i) for i in range(input.shape[0])]
+        jac = torch.stack(jac)
+        # return torch.from_numpy(nd.Jacobian(f)(input)).squeeze().float()
+    else:    
+        # compute vectorized jacobian. For curvature because of nested derivatives, for some of the backward functions
+        # the forward mode AD is not implemented
+        if input.ndim == 1:
+            try:
+                jac = jacfwd(f)(input)
+            except NotImplementedError:
+                jac = jacrev(f)(input)
+        else:
+            try:
+                jac = vmap(jacfwd(f), in_dims=(0,))(input)
+            except NotImplementedError:
+                jac = vmap(jacrev(f), in_dims=(0,))(input)
 
     return jac
 

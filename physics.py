@@ -1,5 +1,6 @@
 import torch
 import numpy as np
+import numdifftools as nd
 
 from setting import Table
 from dynamics import ReturnMap
@@ -7,20 +8,33 @@ from util import batch_jacobian, pair, circ_int_params, area_overlap
 
 
 class DiscreteAction:
-    def __init__(self, action_fn, table, *args, **kwargs):
+    def __init__(self, action_fn, table, exact_deriv=True):
         self.action_fn = action_fn
         self.table = table
+        self.exact_deriv = exact_deriv
 
     def __call__(self, phis):
         action = torch.sum(self.action_fn(pair(phis)))
         return action
 
-    def grad_norm(self, x, ax=None):
-        jac = batch_jacobian(self.__call__, x)
+    def grad_norm(self, x):
+        if self.exact_deriv:
+            jac = batch_jacobian(self.__call__, x)
+        else:
+            jac = batch_jacobian(self.__call__, x, approx=True)
+
+        # if getattr(self.action_fn, "__name__", "") == "exact":
+        #    jac = batch_jacobian(self.__call__, x, approx=True)
+        # else:
+        #    jac = batch_jacobian(self.__call__, x)
+
         if jac.ndim == 1:
             return torch.linalg.norm(jac)
         else:
             return torch.linalg.norm(jac, dim=1)
+
+    def grad_norm_summed(self, x):
+        return torch.sum(self.grad_norm(x))
 
 
 class Action:
@@ -43,14 +57,40 @@ class Action:
                                    **self.kwargs)
 
     def exact(self, phis):
-        p0 = self.table.boundary(phis[:, 0])
-        p2 = self.table.boundary(phis[:, 1])
+        if self.mode == "classic":
+            p0 = self.table.boundary(phis[:, 0])
+            p2 = self.table.boundary(phis[:, 1])
+            if p0.requires_grad:
+                return - torch.linalg.norm(p0 - p2, dim=1)
+            else:
+                return - torch.from_numpy(np.linalg.norm(p0 - p2, axis=1))
 
-        return - torch.linalg.norm(p0 - p2, dim=1)
+        """
+         else:
+            Gs = []
+            coordinates = self.table.boundary(phis[:, 0])
+            coordinates = np.vstack([coordinates, coordinates[0]])
+            #coordinates[1] = p1s
+            #coordinates = np.vstack((coordinates, coordinates[-1]))
+
+            p1s, center = self.table.get_exit_points(phis[:, 0], self.mu)
+
+            for i in range(len(center)):
+                all_coordinates = np.vstack((coordinates[i], p1s[i], coordinates[i+1]))
+
+                _, _, G = self.__call__(None, None, coordinates=all_coordinates, center=center[i])
+                Gs.append(G)
+
+         Gs = torch.tensor(Gs)
+
+         return Gs
+        """
 
     def __call__(self, phi, theta):
+        # if coordinates are not passed, compute them by using the return map
         coordinates, center = self.returnmap(phi, theta)
 
+        # evaluate the generating function
         if self.mode == "classic":
             if coordinates[1][0] is not None:
                 G = - np.linalg.norm(coordinates[0] - coordinates[1], ord=2)
@@ -79,8 +119,6 @@ class Action:
 
                 if phii is not None:
                     # length of first chord
-                    # print(phii*180/torch.pi, phif*180/torch.pi)
-                    # print(phi_delta*180/torch.pi)
                     l1 = np.linalg.norm(coordinates[1] - coordinates[0], ord=2)
 
                     # length of circular arc outside of the billiard table
@@ -93,15 +131,5 @@ class Action:
             else:
                 phi2 = None
                 G = None
-
-            # from shapely.geometry import Point
-            # from matplotlib import pyplot as plt
-            # Create circle and ellipse objects
-            # circle = Point(center).buffer(self.mu)
-            # Calculate intersection area using shapely
-            # intersection = circle.intersection(self.table.polygon)
-            # fig, ax = self.returnmap.plot(phi, theta, show=False)
-            # ax.plot(*intersection.exterior.xy)
-            # plt.show()
 
         return phi, phi2, G

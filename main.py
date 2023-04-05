@@ -7,20 +7,17 @@ if __name__ == "__main__":
     # table properties
     a = 2
     b = 1
-    k = 1/3
+    k = None  # 1/3
+
+    mu = 1/5
+
+    mode = "classic"
 
     assert a >= b, "a must be greater than or equal to b"
     assert a > 0 and b > 0, "a and b must be positive"
     assert k is None or (k > 0 and k < b), "k must be positive and less than b"
+    assert k is None or mu <= (b-k)**2/a, "Only high-field limit is implemented"
 
-    # magnetic properties
-    if k is None:
-        mu = 1/5
-    else:
-        # mu = (b-k)**2/a
-        mu = 1/5
-
-    mode = "classic"
 
     if a == b:
         subdir = "circle"
@@ -62,7 +59,8 @@ if __name__ == "__main__":
                     b,
                     k,
                     mu,
-                    exact=False,
+                    exact_G=True,
+                    exact_deriv=False,
                     show=False,
                     frequency=frequency,
                     helicity="pos",

@@ -19,7 +19,7 @@ def training_procedure(**kwargs):
         "mu"), kwargs.get("k"), kwargs.get("num_epochs"), kwargs.get("batch_size"))
 
 
-def minimization_procedure(a, b, k, mu, n_epochs=100, dir=None, helicity="pos", exact=False, frequency=(1, 1), show=True, plot_points=True):
+def minimization_procedure(a, b, k, mu, n_epochs=100, dir=None, exact_deriv=True, helicity="pos", exact_G=False, frequency=(1, 1), show=True, plot_points=True):
     # load model
     filename = os.path.join(MODELDIR, dir, "model.pth")
 
@@ -31,10 +31,10 @@ def minimization_procedure(a, b, k, mu, n_epochs=100, dir=None, helicity="pos", 
     G_hat.load_state_dict(torch.load(filename)["model_state_dict"])
 
     # choose generating fn
-    if exact:
-        if mode != "classic":
-            print("ERROR: Exact action only available for classic mode")
-            exit(1)
+    if exact_G:
+        # if not exact_deriv and mode != "classic":
+        #    print("Error: Exact G only available for classic case")
+        #    exit(1)
         G = Action(a, b, k, mu, mode=mode).exact
     else:
         G = G_hat
@@ -55,13 +55,16 @@ def minimization_procedure(a, b, k, mu, n_epochs=100, dir=None, helicity="pos", 
     minimizer = Minimizer(a,
                           b,
                           k,
+                          mu,
                           orbit,
                           G,
+                          mode=mode,
+                          exact_deriv=exact_deriv,
                           n_epochs=n_epochs,
                           frequency=frequency)
 
     # minimize action
-    minimizer.minimize()
+    minimizer.minimize(exact_deriv=exact_deriv)
 
     # initialize diagnostics
     diagnostics = Diagnostics(a,
@@ -82,7 +85,18 @@ def minimization_procedure(a, b, k, mu, n_epochs=100, dir=None, helicity="pos", 
     img_dir = get_todays_graphics_dir(mode, subdir, add=str(frequency))
 
     if mode == "classic":
-        img_dir = os.path.join(img_dir, "exact" if exact else "approx")
+        # build up dirname
+        if exact_G:
+            approx_type = "exact"
+        else:
+            approx_type = "approx"
+        if exact_deriv:
+            approx_type += "-exact"
+        else:
+            approx_type += "-approx"
+
+        # img_dir = os.path.join(img_dir, "exact" if exact_G else "approx")
+        img_dir = os.path.join(img_dir, approx_type)
         mkdir(img_dir)
 
     orbit.plot(img_dir=img_dir, show=show)
@@ -96,11 +110,11 @@ def minimization_procedure(a, b, k, mu, n_epochs=100, dir=None, helicity="pos", 
                           plot_points=plot_points)
 
     # plot the gradient analysis
-    diagnostics.landscape(minimizer.discrete_action.grad_norm,
-                          img_dir=img_dir,
-                          show=show,
-                          plot_points=plot_points,
-                          filename="landsacpe_grad_norm.png")
+    # diagnostics.landscape(minimizer.discrete_action.grad_norm,
+    #                      img_dir=img_dir,
+    #                      show=show,
+    #                      plot_points=plot_points,
+    #                      filename="landsacpe_grad_norm.png")
 
     # grad_loss = torch.linalg.norm(batch_jacobian(
     #    self.discrete_action, self.orbit.phi))

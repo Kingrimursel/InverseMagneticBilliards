@@ -376,3 +376,81 @@ def periodic_orbits(a, b, mu):
 
     plt.show()
     plt.savefig("figure.png")
+
+    def derivative(self, dir):
+        """Analyze the networks gradients
+
+        Args:
+            dir (string): directory where trained model is stored
+        """
+        model_dir = os.path.join(MODELDIR, dir)
+
+        train_settings = torch.load(os.path.join(model_dir, "model.pth"))
+
+        model = ReLuModel(input_dim=2, output_dim=1)
+
+        data_dir = os.path.join(DATADIR, self.mode, self.subdir)
+
+        validation_dataset = GeneratingFunctionDataset(
+            os.path.join(data_dir, "validate10k.npy"))
+
+        validation_loader = DataLoader(
+            validation_dataset, batch_size=1024, shuffle=True, pin_memory=True)
+
+        S = DiscreteAction(None, self.table, exact=True)
+        Shat = DiscreteAction(model.model, self.table, exact=False)
+
+        dS_losses = []
+        dShat_losses = []
+        dhatS_losses = []
+
+        for epoch in (pb := tqdm(range(1, train_settings["epochs"] + 1))):
+            epoch_dS_loss = 0.0
+            epoch_dShat_loss = 0.0
+            epoch_dhatS_loss = 0.0
+
+            for inputs, targets in validation_loader:
+                epoch_settings = torch.load(os.path.join(
+                    model_dir, "epochs", str(epoch), "model.pth"))
+
+                # load epoch state
+                model.load_state_dict(epoch_settings["model_state_dict"])
+
+                # calculate exact empirical jacobian
+                dShat = torch.squeeze(batch_hessian(Shat, inputs))
+
+                # calculate exact jacobian
+                dS = torch.squeeze(batch_hessian(S, inputs))
+
+                # calculate approximation of exact jacobian
+                dhatS = torch.squeeze(batch_hessian(S, inputs, exact=False))
+
+                # compute jacobian losses
+                batch_dS_loss = dS.pow(2).mean().item()
+                batch_dShat_loss = dShat.pow(2).mean().item()
+                batch_dhatS_loss = dhatS.pow(2).mean().item()
+
+                # save epoch loss
+                epoch_dShat_loss += batch_dShat_loss
+                epoch_dS_loss += batch_dS_loss
+                epoch_dhatS_loss += batch_dhatS_loss
+
+            dS_losses.append(epoch_dS_loss)
+            dShat_losses.append(epoch_dShat_loss)
+            dhatS_losses.append(epoch_dhatS_loss)
+
+            pb.set_postfix({'dS loss': epoch_dS_loss,
+                            'dS_hat loss': epoch_dShat_loss,
+                            'dhatS loss': epoch_dhatS_loss})
+
+        fig = plt.figure()
+        fig.suptitle("Hessian Errors")
+        plt.xlabel("Epoch")
+        plt.ylabel("Error")
+        plt.plot(dS_losses, label="dG")
+        plt.plot(dShat_losses, label="dG_hat")
+        plt.legend()
+
+        plt.show()
+
+        plt.close()
