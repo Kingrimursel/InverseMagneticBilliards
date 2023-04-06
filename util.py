@@ -343,3 +343,16 @@ def get_todays_graphics_dir(mode, subdir, add=""):
     mkdir(img_dir)
 
     return img_dir
+
+
+def get_approx_type(exact_G, exact_deriv):
+    if exact_G:
+        approx_type = "exact"
+    else:
+        approx_type = "approx"
+    if exact_deriv:
+        approx_type += "-exact"
+    else:
+        approx_type += "-approx"
+
+    return approx_type

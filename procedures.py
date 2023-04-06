@@ -8,7 +8,7 @@ from dynamics import Orbit
 from helper import Training, Minimizer, Diagnostics
 from conf import MODELDIR, GRAPHICSDIR, TODAY
 from physics import Action
-from util import batch_jacobian, get_todays_graphics_dir, mkdir, grad
+from util import batch_jacobian, get_todays_graphics_dir, mkdir, grad, get_approx_type
 
 
 def training_procedure(**kwargs):
@@ -86,28 +86,21 @@ def minimization_procedure(a, b, k, mu, n_epochs=100, dir=None, exact_deriv=True
 
     if mode == "classic":
         # build up dirname
-        if exact_G:
-            approx_type = "exact"
-        else:
-            approx_type = "approx"
-        if exact_deriv:
-            approx_type += "-exact"
-        else:
-            approx_type += "-approx"
+        approx_type = get_approx_type(exact_G, exact_deriv)
 
         # img_dir = os.path.join(img_dir, "exact" if exact_G else "approx")
         img_dir = os.path.join(img_dir, approx_type)
         mkdir(img_dir)
 
-    orbit.plot(img_dir=img_dir, show=show)
+    #orbit.plot(img_dir=img_dir, show=show)
 
-    diagnostics.error(G, show=show, img_dir=img_dir)
+    #diagnostics.error(G, show=show, img_dir=img_dir)
 
     # diagnostics.landscape(grad(G_hat, norm=True), n=150)
-    diagnostics.landscape(G,
-                          img_dir=img_dir,
-                          show=show,
-                          plot_points=plot_points)
+    #diagnostics.landscape(G,
+    #                      img_dir=img_dir,
+    #                      show=show,
+    #                      plot_points=plot_points)
 
     # plot the gradient analysis
     # diagnostics.landscape(minimizer.discrete_action.grad_norm,
@@ -120,10 +113,12 @@ def minimization_procedure(a, b, k, mu, n_epochs=100, dir=None, exact_deriv=True
     #    self.discrete_action, self.orbit.phi))
 
     # plot the minimization loss
-    minimizer.plot(img_dir=img_dir, show=show)
+    #minimizer.plot(img_dir=img_dir, show=show)
 
     # plot the gradient analysis
     # diagnostics.derivative(dir)
 
     # plot whether the reflection_law is satisfied
-    diagnostics.physics(img_dir=img_dir, show=show)
+    d1s, d2s = diagnostics.physics(img_dir=img_dir, show=show)
+
+    return d1s, d2s

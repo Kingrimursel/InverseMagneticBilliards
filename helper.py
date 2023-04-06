@@ -213,17 +213,22 @@ class Diagnostics:
         ausfallswinkel = []
 
         for i, tangent in enumerate(tangents):
-            # print(us[i-1])
-            # print(tangent)
-            # print(us[i])
-            # print(angle_between(us[i-1], tangent)*180/np.pi)
-            # print(angle_between(us[i], tangent)*180/np.pi)
-            # print("\n")
-            # fig, ax = self.orbit.plot(show=False)
-            # ax.quiver(*self.orbit.points()[i].detach().T, 10*us[i, 0].detach(), 10*us[i, 1].detach(), scale=1)
-            # ax.quiver(*self.orbit.points()[i].detach().T, 10*us[i-1, 0].detach(), 10*us[i-1, 1].detach(), scale=1)
-            # ax.quiver(*self.orbit.points()[i].detach().T, 10*tangents[i, 0].detach(), 10*tangents[i, 1].detach(), scale=1)
-            # plt.show()
+            #print(us[i-1])
+            #print(tangent)
+            #print(us[i])
+            #print(angle_between(us[i-1], tangent)*180/np.pi)
+            #print(angle_between(us[i], tangent)*180/np.pi)
+            #fig, ax = self.orbit.plot(show=False)
+            #ax.quiver(*self.orbit.points()[i].detach().T, 10 *
+            #          us[i, 0].detach(), 10*us[i, 1].detach(), scale=1)
+            #ax.quiver(*self.orbit.points()[i].detach().T, 10 *
+            #          us[i-1, 0].detach(), 10*us[i-1, 1].detach(), scale=1)
+            #ax.quiver(*self.orbit.points()[i].detach().T, 10*tangents[i,
+            #          0].detach(), 10*tangents[i, 1].detach(), scale=1)
+            #print(angle_between(us[i-1], tangent))
+            #print(angle_between(us[i], tangent))
+            #plt.show()
+
             einfallswinkel.append(angle_between(us[i-1], tangent))
             ausfallswinkel.append(angle_between(us[i], tangent))
 
@@ -238,18 +243,18 @@ class Diagnostics:
 
     def physics(self, unit="deg", img_dir=None, show=True):
         print(f"DIAGNOSTIC physics...")
+
         fig = plt.figure()
-        # fig.suptitle("Error in Reflection Law")
         plt.xlabel("Point")
 
         if self.mode == "classic":
-            plt.ylabel("Error [%]")
             einfallswinkel, ausfallswinkel = self.reflection_angle(unit=unit)
 
             error = torch.abs(
                 100*(einfallswinkel - ausfallswinkel)/torch.max(einfallswinkel, ausfallswinkel))
 
             x = np.arange(len(error)) + 1
+            plt.ylabel("Error [%]")
             plt.plot(x, error.detach(), label="Angle Error")
 
             print(f"Angles of Incidence: {einfallswinkel.tolist()}")
@@ -264,8 +269,8 @@ class Diagnostics:
 
             factor = 6*max(self.a, self.b)
 
-            ex_errors = []
-            re_errors = []
+            d1s = []
+            d2s = []
 
             for i in range(len(centers)):
                 center = centers[i-1]
@@ -278,8 +283,8 @@ class Diagnostics:
                 ex_error = 1 - abs(np.dot(emp_ex_tan, re_ex_tan))
                 re_error = 1 - abs(np.dot(emp_re_tan, re_re_tan))
 
-                ex_errors.append(ex_error)
-                re_errors.append(re_error)
+                d1s.append(ex_error)
+                d2s.append(re_error)
 
                 # fig, ax = self.orbit.plot(show=False)
                 # ax.quiver(*p0s[i].T, 10*emp_re_tan[0], 10*emp_re_tan[1], scale=1)
@@ -289,9 +294,9 @@ class Diagnostics:
                 # ax.plot(*emp_ex_chord.xy)
                 # plt.show()
 
-            x = np.arange(len(ex_errors)) + 1
-            plt.plot(x, ex_errors, label=r"$\Delta_1$")
-            plt.plot(x, re_errors, label=r"$\Delta_2$")
+            x = np.arange(len(d1s)) + 1
+            plt.plot(x, d1s, label=r"$\Delta_1$")
+            plt.plot(x, d2s, label=r"$\Delta_2$")
             plt.ylim(0, 0.1)
             plt.gca().spines[['right', 'top']].set_visible(False)
 
@@ -305,6 +310,11 @@ class Diagnostics:
             plt.show()
 
         plt.close()
+
+        if self.mode == "inversemagnetic":
+            return torch.tensor(d1s), torch.tensor(d2s)
+        else:
+            return error, torch.tensor([])
 
     def landscape(self, fn, n=150, repeat=False, dim=2, img_dir=None, show=True, plot_points=True, filename="landscape.png"):
         print("DIAGNOSTIC landscape...")
