@@ -5,3 +5,5 @@
 It contains implementation of Inverse Magnetic Billiards (invented by Sean Gasiorek).
 
 We present a three-step algorithm for learning periodic orbits in arbitrary closed, bounded domains. In a first step, we create a training-dataset consisting of a pair of coordinates and the corresponding value of the generating function. In the second step, we use a neural network to learn an easily differentiable approximation of the generating function. In the third step, we use gradient descent to find perdiodic orbits via the stationary action principle from Hamiltonian dynamics.
+
+![three_phases](https://github.com/phnazari/InverseMagneticBilliards/assets/41115254/f624df1b-6bda-4e7a-b861-7f9d66757bee)
